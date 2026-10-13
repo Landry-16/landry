@@ -115,8 +115,9 @@
 
     <div class="group">
       <h2>{t('Alias')}</h2>
-      <label for="aliases"><span>{t('Un par ligne :')} <code>{t('alias = cible')}</code>{t(". La cible est un texte à chercher, ou l'identifiant d'un élément.")}</span></label>
-      <textarea id="aliases" bind:value={aliases} rows="4" placeholder="nc = nacre" spellcheck="false"></textarea>
+      <label for="aliases"><span>{t('Un par ligne :')} <code>{t('alias = cible')}</code>{t(". La cible est une commande complète, un texte à chercher, ou l'identifiant d'un élément. Des mots tapés après l'alias s'ajoutent à la cible.")}</span></label>
+      <textarea id="aliases" bind:value={aliases} rows="5" placeholder={'pp = /spotify play\nsp = /spotify\nnc = nacre'} spellcheck="false" aria-describedby="aliases-examples"></textarea>
+      <p class="hint" id="aliases-examples">{t('Exemples : « pp = /spotify play » met la musique en pause d’un seul mot ; avec « sp = /spotify », taper « sp daft punk » cherche Daft Punk dans Spotify.')}</p>
     </div>
 
     <div class="group">

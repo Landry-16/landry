@@ -177,10 +177,30 @@ impl Engine {
         self.preset.module_order().into_iter().filter(|m| m.enabled).map(|m| m.id).collect()
     }
 
+    /// An alias whose target is text (not an item id) stands for that text: "pp" -> "/spotify play".
+    /// The first word alone also works, followed by arguments: with "sp = /spotify", "sp daft punk"
+    /// -> "/spotify daft punk".
+    pub fn expand_alias(&self, query: &str) -> Option<String> {
+        let q = query.trim();
+        let text = |t: &String| items_by_id(&self.index, &self.command_items(), t).is_none().then(|| t.clone());
+        if let Some(t) = self.settings.aliases.get(q) {
+            return text(t);
+        }
+        let (word, rest) = q.split_once(' ')?;
+        text(self.settings.aliases.get(word)?).map(|t| format!("{t} {}", rest.trim()))
+    }
+
     pub fn search(&mut self, query: &str) -> Vec<Item> {
+        match self.expand_alias(query) {
+            Some(q) => self.search_query(&q),
+            None => self.search_query(query),
+        }
+    }
+
+    fn search_query(&mut self, query: &str) -> Vec<Item> {
         if let Some(rest) = query.trim_start().strip_prefix('/') {
             match modules::slash::query(&self.settings, rest) {
-                modules::slash::Slash::Rewrite(q) => return self.search(&q),
+                modules::slash::Slash::Rewrite(q) => return self.search_query(&q),
                 modules::slash::Slash::Items(mut out) => {
                     self.shown = out.iter().map(|i| (i.id.clone(), i.clone())).collect();
                     out.iter_mut().for_each(|i| localize_actions(&mut i.actions));
@@ -188,12 +208,8 @@ impl Engine {
                 }
             }
         }
-        // An alias pointing at text (not an item id) stands for that query.
+        // An alias pointing at an item id (text aliases were expanded by `search`).
         let alias = self.settings.aliases.get(query.trim()).cloned();
-        let query = match &alias {
-            Some(t) if items_by_id(&self.index, &self.command_items(), t).is_none() => t.as_str(),
-            _ => query,
-        };
         let limit = self.preset.max_results as usize;
         let enabled = self.enabled();
         let (text, filter) = files::parse_filters(query);
@@ -453,6 +469,18 @@ mod tests {
         assert_eq!(e.preset.name, "Minimal");
         assert_eq!(e.store.settings().0.active_preset, "Minimal");
         assert!(e.history().contains(&"min".to_string()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn aliases_run_whole_commands_and_take_arguments() {
+        let (mut e, dir) = engine();
+        e.settings.aliases.insert("pp".into(), "/spotify play".into());
+        e.settings.aliases.insert("sp".into(), "/spotify".into());
+        e.settings.aliases.insert("min".into(), "minuteur 5 min".into());
+        assert_eq!(e.search("pp")[0].title, "Lecture ou pause");
+        assert_eq!(e.search("sp daft punk")[0].title, "Chercher « daft punk » dans Spotify");
+        assert_eq!(e.search("min")[0].title, "Lancer un minuteur de 5 min");
         std::fs::remove_dir_all(dir).unwrap();
     }
 
