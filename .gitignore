@@ -6,3 +6,4 @@ src-tauri/gen/
 *.pdf
 .claude/
 dist-packages/
+.playwright-mcp/

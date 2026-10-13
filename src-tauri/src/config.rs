@@ -144,6 +144,36 @@ impl Default for Preview {
     }
 }
 
+/// Decoration drawn around the bar, and the shape of its particles.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Ornament {
+    None,
+    Silk,
+    Fresco,
+    Pixel,
+    Baroque,
+}
+
+/// What makes the bar alive: the companion, the frame and the atmosphere.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct Style {
+    /// The vouivre, the small winged serpent living in the bar.
+    pub companion: bool,
+    pub ornament: Ornament,
+    /// Drifting particles behind the results, 0 for none.
+    pub particles: u32,
+    /// Second colour: wings, ornaments and particles. Same for light and dark.
+    pub tint: String,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Style { companion: true, ornament: Ornament::None, particles: 6, tint: "#7c6cf0".into() }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Module {
@@ -167,6 +197,7 @@ pub struct Preset {
     pub max_results: u32,
     pub layout: Layout,
     pub preview: Preview,
+    pub style: Style,
     /// Display order and visibility. Modules missing here are appended, enabled.
     pub modules: Vec<Module>,
 }
@@ -186,6 +217,7 @@ impl Default for Preset {
             max_results: 8,
             layout: Layout::default(),
             preview: Preview::default(),
+            style: Style::default(),
             modules: MODULES.iter().map(|id| Module { id: (*id).into(), enabled: true }).collect(),
         }
     }
@@ -201,6 +233,7 @@ pub fn shipped_presets() -> Vec<Preset> {
         density: Density::Compact,
         preview: Preview { visible: false, ..Preview::default() },
         layout: Layout { width: 560, layer: Layer::Window, ..Layout::default() },
+        style: Style { particles: 0, ..Style::default() },
         ..base.clone()
     };
     let dense = Preset {
@@ -225,9 +258,82 @@ pub fn shipped_presets() -> Vec<Preset> {
         },
         max_results: 10,
         layout: Layout { width: 800, radius: 6, ..Layout::default() },
+        style: Style { particles: 0, tint: "#58a6ff".into(), ..Style::default() },
+        ..base.clone()
+    };
+    let rose = Preset {
+        name: "Rose noire".into(),
+        theme: ThemeMode::Dark,
+        font: Font { family: "Playfair Display, Cormorant Garamond, Noto Serif, serif".into(), size: 16 },
+        dark: Colors {
+            bg: "#1a0609".into(),
+            fg: "#f3e6d8".into(),
+            muted: "#b59a8c".into(),
+            accent: "#c9a36a".into(),
+            selection: "#3d0f16".into(),
+            border: "#5a3422".into(),
+        },
+        light: Colors {
+            bg: "#f6ece4".into(),
+            fg: "#2a0a10".into(),
+            muted: "#6e4f45".into(),
+            accent: "#8a5a1c".into(),
+            selection: "#ead6cc".into(),
+            border: "#c9a36a".into(),
+        },
+        layout: Layout { width: 760, radius: 10, ..Layout::default() },
+        style: Style { ornament: Ornament::Baroque, particles: 10, tint: "#c8102e".into(), ..Style::default() },
+        ..base.clone()
+    };
+    let silk = Preset {
+        name: "Soie".into(),
+        theme: ThemeMode::Dark,
+        font: Font { family: "Cormorant Garamond, Noto Serif, serif".into(), size: 17 },
+        dark: Colors {
+            bg: "#2a1019".into(),
+            fg: "#f6e7d3".into(),
+            muted: "#b9989a".into(),
+            accent: "#e8c58c".into(),
+            selection: "#43202c".into(),
+            border: "#6b3a45".into(),
+        },
+        layout: Layout { radius: 28, ..Layout::default() },
+        style: Style { ornament: Ornament::Silk, particles: 8, tint: "#e9a6b8".into(), ..Style::default() },
+        ..base.clone()
+    };
+    let fresco = Preset {
+        name: "Fresque".into(),
+        theme: ThemeMode::Dark,
+        font: Font { family: "Fraunces, Noto Serif, serif".into(), size: 15 },
+        dark: Colors {
+            bg: "#1a120a".into(),
+            fg: "#f7e6c4".into(),
+            muted: "#b49a74".into(),
+            accent: "#f0b429".into(),
+            selection: "#33240f".into(),
+            border: "#5a4220".into(),
+        },
+        layout: Layout { radius: 6, ..Layout::default() },
+        style: Style { ornament: Ornament::Fresco, particles: 12, tint: "#d8402b".into(), ..Style::default() },
+        ..base.clone()
+    };
+    let pixel = Preset {
+        name: "Pixel".into(),
+        theme: ThemeMode::Dark,
+        font: Font { family: "JetBrains Mono, Fira Code, monospace".into(), size: 14 },
+        dark: Colors {
+            bg: "#262624".into(),
+            fg: "#f5f1ea".into(),
+            muted: "#a39e93".into(),
+            accent: "#d97757".into(),
+            selection: "#3a3835".into(),
+            border: "#4a4743".into(),
+        },
+        layout: Layout { radius: 4, ..Layout::default() },
+        style: Style { ornament: Ornament::Pixel, particles: 10, tint: "#e8b04a".into(), ..Style::default() },
         ..base
     };
-    vec![minimal, dense, dev]
+    vec![minimal, dense, dev, rose, silk, fresco, pixel]
 }
 
 fn is_hex_color(s: &str) -> bool {
@@ -269,10 +375,14 @@ impl Preset {
                 }
             }
         }
+        if !is_hex_color(&self.style.tint) {
+            errs.push(tf("{f} : couleur invalide « {v} » (attendu #RRGGBB)", &[("f", &"style.tint"), ("v", &self.style.tint)]));
+        }
         if self.font.family.trim().is_empty() || self.font.family.contains([';', '{', '}']) {
             errs.push(t("font.family invalide"));
         }
-        let ranges: [(&str, i64, i64, i64); 9] = [
+        let ranges: [(&str, i64, i64, i64); 10] = [
+            ("style.particles", self.style.particles as i64, 0, 40),
             ("font.size", self.font.size as i64, 8, 48),
             ("max_results", self.max_results as i64, 1, 50),
             ("animation_ms", self.animation_ms as i64, 0, 2000),
@@ -427,16 +537,27 @@ impl Store {
         self.dir.join("settings.json")
     }
 
-    /// First run: create the folders and write the shipped presets.
+    /// Writes the shipped presets not offered yet: all on first run, then only those added by an update.
+    /// `.shipped` remembers what was offered, so a preset the user deleted stays deleted.
     pub fn seed(&self) -> Result<(), String> {
-        if self.presets_dir().exists() {
-            return Ok(());
-        }
+        let list = self.presets_dir().join(".shipped");
+        let offered: Vec<String> = match std::fs::read_to_string(&list) {
+            Ok(s) => s.lines().map(String::from).collect(),
+            // Folder from before `.shipped` existed: those three were offered then.
+            Err(_) if self.presets_dir().exists() => ["Minimal", "Dense", "Développeur"].map(String::from).to_vec(),
+            Err(_) => Vec::new(),
+        };
         std::fs::create_dir_all(self.presets_dir()).map_err(|e| e.to_string())?;
-        for p in shipped_presets() {
-            self.write_preset(&p)?;
+        let shipped = shipped_presets();
+        for p in shipped.iter().filter(|p| !offered.contains(&p.name)) {
+            if self.find_file(&p.name).is_none() {
+                self.write_preset(p)?;
+            }
         }
-        Ok(())
+        let mut names: Vec<&str> = shipped.iter().map(|p| p.name.as_str()).chain(offered.iter().map(String::as_str)).collect();
+        names.sort();
+        names.dedup();
+        write_atomic(&list, &names.join("\n"))
     }
 
     /// Settings never fail to load: a broken file falls back to defaults with a warning.
@@ -643,10 +764,39 @@ mod tests {
         let (s, dir) = store();
         let names: Vec<_> = s.list().into_iter().map(|i| i.name).collect();
         assert_eq!(names[0], DEFAULT_NAME);
-        for n in ["Minimal", "Dense", "Développeur"] {
+        for n in ["Minimal", "Dense", "Développeur", "Rose noire", "Soie", "Fresque", "Pixel"] {
             assert!(names.contains(&n.to_string()), "{n} manquant dans {names:?}");
         }
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn update_adds_new_presets_but_not_deleted_ones() {
+        let (s, dir) = store();
+        // A folder seeded by an older version: no `.shipped`, the user deleted Dense.
+        std::fs::remove_file(dir.join("presets/.shipped")).unwrap();
+        s.delete("Dense").unwrap();
+        s.delete("Rose noire").unwrap();
+        s.seed().unwrap();
+        let names: Vec<_> = s.list().into_iter().map(|i| i.name).collect();
+        assert!(names.contains(&"Rose noire".to_string()), "{names:?}");
+        assert!(!names.contains(&"Dense".to_string()), "{names:?}");
+        // Deleted after being offered: stays deleted.
+        s.delete("Rose noire").unwrap();
+        s.seed().unwrap();
+        assert!(s.get("Rose noire").is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn style_is_validated() {
+        let mut p = Preset::default();
+        p.style.tint = "rouge".into();
+        p.style.particles = 99;
+        let e = p.validate().unwrap_err();
+        assert!(e.contains("style.tint") && e.contains("style.particles"), "{e}");
+        let old = Preset::parse(r#"{"name": "Ancien"}"#).unwrap();
+        assert_eq!(old.style, Style::default());
     }
 
     #[test]
