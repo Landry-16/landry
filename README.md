@@ -4,6 +4,8 @@ Landry est un compagnon du quotidien pour Ubuntu GNOME. Un raccourci clavier ouv
 
 Cible : Ubuntu 24.04, GNOME 46, session Wayland. Pile : Tauri 2 (Rust) et Svelte 5.
 
+La liste complète des fonctionnalités, avec leur état et ce qui reste à faire, est dans [FEATURES.md](FEATURES.md).
+
 ## Installation
 
 ```bash
