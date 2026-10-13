@@ -1,4 +1,6 @@
+mod config;
 mod ipc;
+mod paths;
 
 use std::sync::mpsc;
 use std::sync::Mutex;
