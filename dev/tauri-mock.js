@@ -26,6 +26,7 @@
   const others = [
     { id: 'file:/home/user/Documents/facture-octobre.pdf', module: 'files', title: 'facture-octobre.pdf', subtitle: '~/Documents', icon: '', actions: fileActions },
     { id: 'proj:/home/user/dev/nacre', module: 'projects', title: 'nacre', subtitle: 'main · 2 modifiés · ~/dev/nacre', icon: '', actions: [{ id: 'editor', title: "Ouvrir dans l'éditeur" }, { id: 'terminal', title: 'Ouvrir un terminal' }, { id: 'npm:dev', title: 'npm run dev' }] },
+    { id: 'snip:1', module: 'snippets', title: 'Relance devis', subtitle: 'relance · Bonjour {champ:Prénom},', icon: '', actions: [{ id: 'paste', title: 'Coller' }, { id: 'copy', title: 'Copier' }, { id: 'edit', title: "Modifier l'extrait" }] },
     { id: 'tool:diff', module: 'tools', title: 'Comparer deux textes', subtitle: 'Diff ligne par ligne', icon: '', actions: [{ id: 'view', title: 'Ouvrir' }] },
   ];
 
@@ -49,6 +50,9 @@
     activate: ({ id, action, arg }) => {
       if (id === 'cmd:settings') return { kind: 'settings' };
       if (id === 'tool:diff') return { kind: 'view', text: 'diff' };
+      if (id === 'snip:1' && action === 'edit') return { kind: 'view', text: 'settings:snippets' };
+      if (id === 'snip:1' && !arg) return { kind: 'ask', text: ['Prénom', 'Projet'] };
+      if (id === 'snip:1') return { kind: 'paste', text: { text: arg, back: 0 } };
       if (id.startsWith('cmd:preset:')) {
         active = id.slice('cmd:preset:'.length);
         emit('landry://preset', { preset: preset(), warning: null });
@@ -74,6 +78,9 @@
     save_settings: () => null,
     accounts: () => [{ id: 'github', label: 'GitHub', configured: true }, { id: 'vercel', label: 'Vercel', configured: false }],
     set_token: () => null,
+    snippets_list: () => [{ id: 1, name: 'Relance devis', keyword: 'relance', body: 'Bonjour {champ:Prénom},\n\nJe reviens vers vous au sujet du devis {champ:Projet} envoyé le {date}.{curseur}' }],
+    snippet_save: ({ snippet }) => snippet.id || 2,
+    snippet_delete: () => null,
     painted: () => null,
     hide: () => console.log('[mock] hide'),
     settings_layer: () => null,

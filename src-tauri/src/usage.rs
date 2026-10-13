@@ -1,4 +1,5 @@
-//! Usage history (frecency with time-of-day affinity) and query history, in SQLite.
+//! Landry's SQLite store: usage history (frecency with time-of-day affinity), query history,
+//! snippets.
 
 use chrono::{Local, TimeZone, Timelike};
 use rusqlite::{params, Connection};
@@ -11,6 +12,14 @@ const HALF_LIFE_DAYS: f64 = 14.0;
 
 pub struct Db {
     conn: Connection,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+pub struct Snippet {
+    pub id: i64,
+    pub name: String,
+    pub keyword: String,
+    pub body: String,
 }
 
 pub fn now() -> i64 {
@@ -40,7 +49,10 @@ impl Db {
             "PRAGMA journal_mode=WAL;
              CREATE TABLE IF NOT EXISTS usage (item_id TEXT NOT NULL, ts INTEGER NOT NULL);
              CREATE INDEX IF NOT EXISTS usage_item ON usage(item_id);
-             CREATE TABLE IF NOT EXISTS queries (text TEXT PRIMARY KEY, ts INTEGER NOT NULL);",
+             CREATE TABLE IF NOT EXISTS queries (text TEXT PRIMARY KEY, ts INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS snippets (
+                 id INTEGER PRIMARY KEY, name TEXT NOT NULL, keyword TEXT NOT NULL DEFAULT '',
+                 body TEXT NOT NULL, updated INTEGER NOT NULL);",
         )?;
         let db = Db { conn };
         db.prune(now())?;
@@ -79,6 +91,34 @@ impl Db {
         let mut stmt = self.conn.prepare("SELECT text FROM queries ORDER BY ts DESC, rowid DESC LIMIT ?1")?;
         let rows = stmt.query_map([limit as i64], |r| r.get(0))?;
         rows.collect()
+    }
+
+    pub fn snippets(&self) -> rusqlite::Result<Vec<Snippet>> {
+        let mut stmt = self.conn.prepare("SELECT id, name, keyword, body FROM snippets ORDER BY name COLLATE NOCASE")?;
+        let rows = stmt.query_map([], |r| Ok(Snippet { id: r.get(0)?, name: r.get(1)?, keyword: r.get(2)?, body: r.get(3)? }))?;
+        rows.collect()
+    }
+
+    /// Insert (id 0) or update; returns the id.
+    pub fn save_snippet(&self, s: &Snippet) -> rusqlite::Result<i64> {
+        if s.id == 0 {
+            self.conn.execute(
+                "INSERT INTO snippets (name, keyword, body, updated) VALUES (?1, ?2, ?3, ?4)",
+                params![s.name, s.keyword, s.body, now()],
+            )?;
+            Ok(self.conn.last_insert_rowid())
+        } else {
+            self.conn.execute(
+                "UPDATE snippets SET name = ?1, keyword = ?2, body = ?3, updated = ?4 WHERE id = ?5",
+                params![s.name, s.keyword, s.body, now(), s.id],
+            )?;
+            Ok(s.id)
+        }
+    }
+
+    pub fn delete_snippet(&self, id: i64) -> rusqlite::Result<()> {
+        self.conn.execute("DELETE FROM snippets WHERE id = ?1", [id])?;
+        Ok(())
     }
 
     fn prune(&self, now: i64) -> rusqlite::Result<()> {
@@ -121,6 +161,18 @@ mod tests {
         db.record_use("b", n - 60 * DAY).unwrap();
         let f = db.frecency(n).unwrap();
         assert!(f["a"] > f["b"]);
+    }
+
+    #[test]
+    fn snippet_crud() {
+        let db = mem();
+        let mut s = Snippet { id: 0, name: "Signature".into(), keyword: "sig".into(), body: "Landry".into() };
+        s.id = db.save_snippet(&s).unwrap();
+        s.body = "Landry, développeur".into();
+        assert_eq!(db.save_snippet(&s).unwrap(), s.id);
+        assert_eq!(db.snippets().unwrap(), vec![s.clone()]);
+        db.delete_snippet(s.id).unwrap();
+        assert!(db.snippets().unwrap().is_empty());
     }
 
     #[test]

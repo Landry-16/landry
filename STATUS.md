@@ -1,6 +1,6 @@
 # STATUS
 
-Phase courante : **Phase 3, texte et calcul**
+Phase courante : **Phase 4, organisation**
 
 ## Phase 0 : focus et raccourci
 - [x] Binaire unique `landry` : `landry daemon` (processus résident), `landry [toggle|show|hide|ping|quit]` (CLI)
@@ -35,8 +35,18 @@ Phase courante : **Phase 3, texte et calcul**
 - [x] `landry search <texte>` dans la CLI
 - [ ] Non testé avec de vrais jetons GitHub et Vercel (aucun jeton sur la machine) ; pipette et presse-papiers non testés à la main
 
+## Phase 3 : texte, presse-papiers, calcul
+- [x] Calculatrice `fend-core` : virgule décimale française, pourcentages, unités (en, vers, Mo, Gio...), limite de 150 ms
+- [x] Devises : taux BCE quotidiens, cache `~/.local/share/landry/ecb.xml` (rafraîchi toutes les 12 h, utilisé hors ligne)
+- [x] Fuseaux (« 15h Paris en New York », « heure à Tokyo »), dates relatives (« dans 3 semaines »), jours et jours ouvrés (fériés français, Pâques calculé)
+- [x] Montants : « 100 ht », « 120 ttc » (TVA des réglages), « ca 3000 » (taux micro-entreprise à saisir dans Général)
+- [x] Extraits (SQLite) avec {date}, {heure}, {date:format}, {presse-papiers}, {curseur}, {champ:Nom} demandés à l'insertion ; onglet Extraits dans les réglages
+- [x] Collage automatique : session RemoteDesktop courte par collage, jeton de restauration dans `~/.local/share/landry/remote-desktop.token`, repli sur copie + notification
+- [x] Transformations de la sélection (sélection primaire lue à l'ouverture) : maj, min, titre, brut, typo, mots
+- [ ] À vérifier par l'utilisateur : la boîte de dialogue RemoteDesktop au premier collage, le collage réel dans une autre application, et si GNOME 46 réutilise bien le jeton (sinon la demande revient à chaque collage)
+
 ## Prochaine étape
-Phase 3, étape 1 : module `src-tauri/src/modules/calc.rs` (calculatrice et unités avec `fend-core`, devises BCE en cache, dates et fuseaux avec `chrono-tz`, montants HT/TTC et cotisations avec taux dans settings.json), branché dans `modules::query`. Puis `modules/snippets.rs` (extraits SQLite, variables) et collage automatique via le portail RemoteDesktop (feature ashpd `remote_desktop` + `screencast`).
+Phase 4, étape 1 : notes Markdown (table `notes` dans `usage.rs`, module `modules/notes.rs`, vue `Notes.svelte` avec recherche), puis tâches avec rappels (`notify-rust`, minuterie dans un fil du résident), minuteur, chronomètre, Pomodoro, suivi du temps et export CSV.
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -64,6 +74,9 @@ Première ouverture après démarrage : 270 à 780 ms (vue web froide).
 - Les résultats dont le score est inférieur au tiers du meilleur sont écartés (moins de bruit).
 - Mots-clés `pr`, `ci`, `issues`, `vercel` pour les services en ligne ; `gh` reste réservé à la recherche web de la phase 5.
 - Actions système (verrouiller, volume...) et ouverture des panneaux de réglages GNOME : absentes de la liste du prompt, non faites.
+- Calculatrice appelée seulement si dates et montants n'ont rien compris (sinon « 15h » devient 15 heures).
+- Taux de cotisations jamais par défaut : l'utilisateur les saisit (ils changent chaque année).
+- Collage : nouvelle session RemoteDesktop à chaque fois, pour ne pas laisser l'indicateur de contrôle à distance de GNOME allumé en permanence.
 - Textes de l'interface en dur en français pour l'instant ; extraction en dictionnaires FR/EN prévue en phase 6.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.
 

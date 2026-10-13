@@ -7,7 +7,9 @@ pub mod money;
 pub mod calc;
 pub mod files;
 pub mod projects;
+pub mod snippets;
 pub mod system;
+pub mod text;
 pub mod tools;
 
 use crate::config::Settings;
@@ -26,7 +28,7 @@ pub enum Preview {
 }
 
 /// Results computed from the query itself, shown before indexed matches.
-pub fn query(enabled: &[String], settings: &Settings, q: &str) -> Vec<Item> {
+pub fn query(enabled: &[String], settings: &Settings, selection: Option<&str>, q: &str) -> Vec<Item> {
     let mut out = Vec::new();
     if q.is_empty() {
         return out;
@@ -39,6 +41,9 @@ pub fn query(enabled: &[String], settings: &Settings, q: &str) -> Vec<Item> {
             found = calc::query(q);
         }
         out.extend(found);
+    }
+    if enabled.iter().any(|m| m == "text") {
+        out.extend(text::query(q, selection));
     }
     if enabled.iter().any(|m| m == "tools") {
         out.extend(tools::query(q));
@@ -78,6 +83,11 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "projects" => projects::run(settings, item, action, arg),
         "system" => system::run(settings, item, action, arg),
         "cloud" => cloud::run(settings, item, action),
+        "text" => match action {
+            "paste" => Ok(Outcome::Paste { text: item.data.clone(), back: 0 }),
+            "copy" => Ok(Outcome::Copy(item.data.clone())),
+            _ => Err(format!("action inconnue : {action}")),
+        },
         "calc" => match action {
             "copy" => Ok(Outcome::Copy(item.data.clone())),
             "settings" => Ok(Outcome::Settings),

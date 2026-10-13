@@ -25,6 +25,10 @@ pub enum Outcome {
     View(String),
     /// Hide, run the screen color picker, then show the picked color.
     Pick,
+    /// Put the text in the clipboard, hide, and paste it in the previous app.
+    Paste { text: String, back: usize },
+    /// Ask these fields, then activate again with their values as a JSON object.
+    Ask(Vec<String>),
 }
 
 pub struct Engine {
@@ -42,6 +46,10 @@ pub struct Engine {
     ranker: Ranker,
     /// Set by the `quit` command; the caller exits the process.
     pub quit_requested: bool,
+    /// Text selected in another app when the bar opened (primary selection).
+    pub selection: Option<String>,
+    /// Clipboard text captured just before a snippet is expanded.
+    pub clipboard: String,
 }
 
 impl Engine {
@@ -61,8 +69,11 @@ impl Engine {
             frecency,
             ranker: Ranker::default(),
             quit_requested: false,
+            selection: None,
+            clipboard: String::new(),
         };
         e.reload_config();
+        e.reload_snippets();
         e
     }
 
@@ -148,7 +159,7 @@ impl Engine {
             let files = if enabled.iter().any(|m| m == "files") { self.index.get("files") } else { None };
             (Vec::new(), files.map(|f| f.iter().filter(|i| filter.matches(i)).cloned().collect()).unwrap_or_default())
         } else {
-            let dynamic = modules::query(&enabled, &self.settings, query.trim());
+            let dynamic = modules::query(&enabled, &self.settings, self.selection.as_deref(), query.trim());
             let mut items = Vec::new();
             for m in &enabled {
                 match m.as_str() {
@@ -230,7 +241,11 @@ impl Engine {
             } else {
                 action.to_string()
             };
-            modules::run(&self.settings, &item, &action, arg)?
+            if item.module == "snippets" {
+                self.run_snippet(&item, &action, arg)?
+            } else {
+                modules::run(&self.settings, &item, &action, arg)?
+            }
         };
         self.record(id, query);
         Ok(outcome)
@@ -249,6 +264,47 @@ impl Engine {
         let first = self.search(query).into_iter().next().ok_or_else(|| format!("aucun résultat pour « {query} »"))?;
         let outcome = self.activate(&first.id, "", "", query)?;
         Ok((first.title, outcome))
+    }
+
+    fn run_snippet(&self, item: &Item, action: &str, arg: &str) -> Result<Outcome, String> {
+        if action == "edit" {
+            return Ok(Outcome::View("settings:snippets".into()));
+        }
+        let fields = modules::snippets::fields(&item.data);
+        if !fields.is_empty() && arg.is_empty() {
+            return Ok(Outcome::Ask(fields));
+        }
+        let values: HashMap<String, String> =
+            if arg.is_empty() { HashMap::new() } else { serde_json::from_str(arg).map_err(|e| format!("valeurs invalides : {e}"))? };
+        let (text, back) = modules::snippets::expand(&item.data, chrono::Local::now(), &self.clipboard, &values);
+        Ok(match action {
+            "copy" => Outcome::Copy(text),
+            _ => Outcome::Paste { text, back },
+        })
+    }
+
+    pub fn reload_snippets(&mut self) {
+        let items = self.snippets().map(|s| modules::snippets::items(&s)).unwrap_or_default();
+        self.set_index("snippets", items);
+    }
+
+    pub fn snippets(&self) -> Result<Vec<usage::Snippet>, String> {
+        self.db.as_ref().ok_or("base de données indisponible")?.snippets().map_err(|e| e.to_string())
+    }
+
+    pub fn save_snippet(&mut self, s: &usage::Snippet) -> Result<i64, String> {
+        if s.name.trim().is_empty() || s.body.is_empty() {
+            return Err("un extrait a besoin d'un nom et d'un texte".into());
+        }
+        let id = self.db.as_ref().ok_or("base de données indisponible")?.save_snippet(s).map_err(|e| e.to_string())?;
+        self.reload_snippets();
+        Ok(id)
+    }
+
+    pub fn delete_snippet(&mut self, id: i64) -> Result<(), String> {
+        self.db.as_ref().ok_or("base de données indisponible")?.delete_snippet(id).map_err(|e| e.to_string())?;
+        self.reload_snippets();
+        Ok(())
     }
 
     pub fn save_settings(&mut self, s: Settings) -> Result<(), String> {
@@ -326,6 +382,21 @@ mod tests {
         assert_eq!(e.preset.name, "Minimal");
         assert_eq!(e.store.settings().0.active_preset, "Minimal");
         assert!(e.history().contains(&"min".to_string()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn snippet_asks_fields_then_pastes() {
+        let (mut e, dir) = engine();
+        let id = e.save_snippet(&usage::Snippet { id: 0, name: "Relance".into(), keyword: "rel".into(), body: "Bonjour {champ:Nom}{curseur} !".into() }).unwrap();
+        let sid = format!("snip:{id}");
+        assert_eq!(e.search("relance")[0].id, sid);
+        assert_eq!(e.activate(&sid, "", "", "relance").unwrap(), Outcome::Ask(vec!["Nom".into()]));
+        assert_eq!(
+            e.activate(&sid, "paste", r#"{"Nom":"Léa"}"#, "relance").unwrap(),
+            Outcome::Paste { text: "Bonjour Léa !".into(), back: 2 }
+        );
+        assert!(e.save_snippet(&usage::Snippet { id: 0, name: " ".into(), keyword: String::new(), body: "x".into() }).is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

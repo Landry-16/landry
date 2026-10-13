@@ -4,8 +4,9 @@
   import { styleString } from './lib/theme.js';
   import GeneralSettings from './GeneralSettings.svelte';
   import Accounts from './Accounts.svelte';
+  import Snippets from './Snippets.svelte';
 
-  let { active, systemDark, onclose } = $props();
+  let { active, systemDark, onclose, initialTab = 'presets' } = $props();
 
   const MODULE_NAMES = {
     commands: 'Commandes Landry',
@@ -26,7 +27,7 @@
     ['border', 'Bordure'],
   ];
 
-  let tab = $state('presets');
+  let tab = $state(untrack(() => initialTab));
   let presets = $state([]);
   let selectedName = $state(untrack(() => active));
   let draft = $state(null);
@@ -173,13 +174,16 @@
     <h1>Réglages</h1>
     <div class="tabs main-tabs" role="tablist" aria-label="Sections">
       <button role="tab" aria-selected={tab === 'presets'} onclick={() => (tab = 'presets')}>Presets</button>
+      <button role="tab" aria-selected={tab === 'snippets'} onclick={() => (tab = 'snippets')}>Extraits</button>
       <button role="tab" aria-selected={tab === 'general'} onclick={() => (tab = 'general')}>Général</button>
       <button role="tab" aria-selected={tab === 'accounts'} onclick={() => (tab = 'accounts')}>Comptes</button>
     </div>
     <button class="ghost close" onclick={onclose} aria-label="Fermer les réglages">Échap</button>
   </header>
 
-  {#if tab === 'general'}
+  {#if tab === 'snippets'}
+    <div class="single"><Snippets /></div>
+  {:else if tab === 'general'}
     <div class="single"><GeneralSettings /></div>
   {:else if tab === 'accounts'}
     <div class="single"><Accounts /></div>

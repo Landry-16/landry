@@ -11,6 +11,8 @@
     commands: 'Commande',
     tools: 'Outil',
     calc: 'Calcul',
+    snippets: 'Extrait',
+    text: 'Texte',
     projects: 'Projet',
     files: 'Fichier',
     system: 'Système',
@@ -27,13 +29,14 @@
   let results = $state([]);
   let selected = $state(0);
   let view = $state('bar');
+  let settingsTab = $state('presets');
   let shownCount = $state(0);
   let input = $state();
   let list = $state();
   let promptInput = $state();
   // Ctrl+K panel: { item, actions, sel, confirm }
   let panel = $state(null);
-  // Argument prompt: { item, action, value }
+  // Argument prompt: { item, action, value } or, for snippet fields, { item, action, fields, values }
   let prompt = $state(null);
   let previewData = $state(null);
   let histPos = -1;
@@ -120,12 +123,12 @@
         warning = e.payload.warning ?? '';
       }),
       listen('landry://theme', (e) => (systemDark = e.payload)),
-      listen('landry://open-settings', () => (view = 'settings')),
+      listen('landry://open-settings', () => openView('settings')),
       listen('landry://fill', (e) => {
         query = e.payload;
         focusInput();
       }),
-      listen('landry://view', (e) => (view = e.payload)),
+      listen('landry://view', (e) => openView(e.payload)),
       // Background data (GitHub, Vercel) arrived: search again.
       listen('landry://refresh', () => view === 'bar' && runSearch(query)),
     ];
@@ -143,16 +146,21 @@
       switch (out.kind) {
         case 'hide':
         case 'copy':
+        case 'paste':
           query = '';
           break;
+        case 'ask':
+          prompt = { item, action: { id: action, title: 'Compléter' }, fields: out.text, values: Object.fromEntries(out.text.map((f) => [f, ''])) };
+          tick().then(() => promptInput?.focus());
+          return;
         case 'settings':
-          view = 'settings';
+          openView('settings');
           break;
         case 'fill':
           query = out.text;
           break;
         case 'view':
-          view = out.text;
+          openView(out.text);
           break;
         case 'message':
           message = out.text;
@@ -233,12 +241,19 @@
       else invoke('hide');
     } else if (e.key === ',' && e.ctrlKey) {
       e.preventDefault();
-      view = 'settings';
+      openView('settings');
     }
   }
 
   function promptKeys(e) {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && prompt.fields) {
+      // Enter moves to the next field, and submits on the last one.
+      e.preventDefault();
+      const inputs = [...e.currentTarget.closest('.prompt').querySelectorAll('input')];
+      const i = inputs.indexOf(e.target);
+      if (i < inputs.length - 1) inputs[i + 1].focus();
+      else activate(prompt.item, prompt.action.id, JSON.stringify(prompt.values));
+    } else if (e.key === 'Enter') {
       e.preventDefault();
       activate(prompt.item, prompt.action.id, prompt.value);
     } else if (e.key === 'Escape') {
@@ -246,6 +261,13 @@
       prompt = null;
       focusInput();
     }
+  }
+
+  /** "settings:snippets" opens the settings on that tab. */
+  function openView(name) {
+    const [v, tab] = name.split(':');
+    settingsTab = tab ?? 'presets';
+    view = v;
   }
 
   function backToBar() {
@@ -258,7 +280,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="overlay" class:centered={view !== 'bar'} onmousedown={(e) => e.target === e.currentTarget && invoke('hide')}>
   {#if preset && view === 'settings'}
-    <Settings active={preset.name} {systemDark} onclose={backToBar} />
+    <Settings active={preset.name} {systemDark} onclose={backToBar} initialTab={settingsTab} />
   {:else if preset && view === 'diff'}
     <Diff onclose={backToBar} />
   {:else if preset}
@@ -285,7 +307,22 @@
         {#if message}<p class="notice" role="status">{message}</p>{/if}
         {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
-        {#if prompt}
+        {#if prompt?.fields}
+          <div class="prompt">
+            <p class="prompt-title">{prompt.item.title}</p>
+            {#each prompt.fields as f, i (f)}
+              <label class="field-row">
+                {f}
+                {#if i === 0}
+                  <input bind:this={promptInput} bind:value={prompt.values[f]} onkeydown={promptKeys} autocomplete="off" />
+                {:else}
+                  <input bind:value={prompt.values[f]} onkeydown={promptKeys} autocomplete="off" />
+                {/if}
+              </label>
+            {/each}
+            <small>Entrée pour passer au champ suivant puis insérer, Échap pour annuler</small>
+          </div>
+        {:else if prompt}
           <div class="prompt">
             <label for="prompt-input">{prompt.action.title} : <strong>{prompt.item.title}</strong></label>
             <input
@@ -608,6 +645,8 @@
     padding: calc(var(--pad) + 10px) calc(var(--pad) + 8px);
   }
   .prompt input {
+    color: var(--fg);
+    font: inherit;
     font-size: 1.05em;
     padding: 8px 10px;
     border-radius: 10px;
@@ -617,6 +656,18 @@
   }
   .prompt small {
     color: var(--muted);
+  }
+  .prompt-title {
+    margin: 0;
+    font-weight: 600;
+  }
+  .field-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 0.9em;
   }
 
   .actions {

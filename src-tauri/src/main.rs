@@ -3,6 +3,7 @@ mod config;
 mod engine;
 mod ipc;
 mod modules;
+mod paste;
 mod paths;
 mod search;
 mod usage;
@@ -86,6 +87,13 @@ fn show_bar(app: &AppHandle, token: String) -> String {
     });
 
     let painted = rx.recv_timeout(Duration::from_secs(1)).is_ok();
+    // The text selected in the previous app, for the text transformations. Read after the
+    // first paint so it never delays the bar; a slow source app only delays this.
+    let h = app.clone();
+    std::thread::spawn(move || {
+        let sel = read_selection(&h, true).filter(|s| !s.trim().is_empty() && s.len() < 100_000);
+        engine(&h).selection = sel;
+    });
     let paint_ms = start.elapsed().as_millis();
     // Focus arrives asynchronously from the compositor; give it a short window.
     let mut focused = false;
@@ -150,9 +158,38 @@ fn apply_outcome(app: &AppHandle, outcome: &Outcome) {
             let h = app.clone();
             std::thread::spawn(move || pick_color(&h));
         }
+        Outcome::Paste { text, back } => {
+            set_clipboard(app, text.clone());
+            hide_bar(app);
+            let back = *back;
+            std::thread::spawn(move || {
+                // Let the previous window get the focus back before typing into it.
+                std::thread::sleep(Duration::from_millis(150));
+                if let Err(e) = tauri::async_runtime::block_on(paste::send(back)) {
+                    eprintln!("landry: collage automatique impossible : {e}");
+                    notify("Copié dans le presse-papiers", "Colle avec Ctrl+V (collage automatique refusé ou indisponible).");
+                }
+            });
+        }
         // Shown or applied by the frontend.
-        Outcome::Keep | Outcome::Message(_) | Outcome::Fill(_) | Outcome::View(_) => {}
+        Outcome::Keep | Outcome::Message(_) | Outcome::Fill(_) | Outcome::View(_) | Outcome::Ask(_) => {}
     }
+}
+
+fn notify(summary: &str, body: &str) {
+    if let Err(e) = notify_rust::Notification::new().appname("Landry").summary(summary).body(body).show() {
+        eprintln!("landry: notification impossible : {e}");
+    }
+}
+
+/// Read a GTK clipboard (CLIPBOARD or PRIMARY) on the main thread.
+fn read_selection(app: &AppHandle, primary: bool) -> Option<String> {
+    let (tx, rx) = mpsc::channel();
+    let _ = app.run_on_main_thread(move || {
+        let atom = if primary { gtk::gdk::SELECTION_PRIMARY } else { gtk::gdk::SELECTION_CLIPBOARD };
+        let _ = tx.send(gtk::Clipboard::get(&atom).wait_for_text().map(|s| s.to_string()));
+    });
+    rx.recv_timeout(Duration::from_millis(500)).ok().flatten()
 }
 
 /// The clipboard belongs to the resident process, so it survives hiding the bar.
@@ -301,6 +338,11 @@ fn search(state: State<EngineState>, query: String) -> Vec<search::Item> {
 
 #[tauri::command]
 fn activate(app: AppHandle, id: String, action: String, arg: String, query: String) -> Result<Outcome, String> {
+    if id.starts_with("snip:") {
+        // {presse-papiers} needs the clipboard as it is now, before Landry replaces it.
+        let clip = read_selection(&app, false).unwrap_or_default();
+        engine(&app).clipboard = clip;
+    }
     let outcome = engine(&app).activate(&id, &action, &arg, &query)?;
     if id.starts_with("cmd:preset:") || id == "cmd:reload" {
         emit_preset(&app);
@@ -381,6 +423,21 @@ fn save_settings(app: AppHandle, settings: config::Settings) -> Result<(), Strin
 #[tauri::command]
 fn set_token(account: String, token: String) -> Result<(), String> {
     modules::cloud::set_token(&account, &token)
+}
+
+#[tauri::command]
+fn snippets_list(state: State<EngineState>) -> Result<Vec<usage::Snippet>, String> {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).snippets()
+}
+
+#[tauri::command]
+fn snippet_save(state: State<EngineState>, snippet: usage::Snippet) -> Result<i64, String> {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).save_snippet(&snippet)
+}
+
+#[tauri::command]
+fn snippet_delete(state: State<EngineState>, id: i64) -> Result<(), String> {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).delete_snippet(id)
 }
 
 #[tauri::command]
@@ -631,6 +688,9 @@ fn daemon() {
             copy_text,
             accounts,
             set_token,
+            snippets_list,
+            snippet_save,
+            snippet_delete,
             get_settings,
             save_settings,
             painted,
