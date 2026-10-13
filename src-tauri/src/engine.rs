@@ -198,7 +198,8 @@ impl Engine {
     }
 
     fn search_query(&mut self, query: &str) -> Vec<Item> {
-        if let Some(rest) = query.trim_start().strip_prefix('/') {
+        let slash = self.enabled().iter().any(|m| m == "slash");
+        if let Some(rest) = query.trim_start().strip_prefix('/').filter(|_| slash) {
             match modules::slash::query(&self.settings, rest) {
                 modules::slash::Slash::Rewrite(q) => return self.search_query(&q),
                 modules::slash::Slash::Items(mut out) => {
@@ -507,6 +508,8 @@ mod tests {
         let sp = e.search("/spotify nocturne")[0].clone();
         assert_eq!(e.actions(&sp.id).len(), 3, "l'élément affiché reste activable");
         assert_eq!(e.search("/dense")[0].id, "cmd:preset:Dense", "un mot inconnu redevient une recherche");
+        e.preset.modules.iter_mut().filter(|m| m.id == "slash").for_each(|m| m.enabled = false);
+        assert!(e.search("/").iter().all(|i| i.module != "slash"), "module désactivé : « / » est un texte ordinaire");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

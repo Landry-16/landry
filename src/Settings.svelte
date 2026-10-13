@@ -13,6 +13,7 @@
 
   const MODULE_NAMES = {
     commands: 'Commandes Landry',
+    slash: 'Commandes « / »',
     apps: 'Applications',
     calc: 'Calcul, dates, montants',
     snippets: 'Extraits',

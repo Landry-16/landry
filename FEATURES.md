@@ -14,7 +14,9 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Entrée : action principale ; Ctrl+K : toutes les actions ; Tab : compléter | fait |
 | Historique des recherches (flèche du haut sur barre vide) | fait |
 | Panneau d'aperçu (texte, image, propriétés) | fait |
-| Alias (`nc` vers un projet, `ed` vers une recherche) | fait |
+| Alias vers un élément, une recherche ou une commande complète (`pp = /spotify play`) | fait |
+| Alias suivi d'arguments (`sp = /spotify`, puis `sp daft punk`) | fait |
+| Ouverture jamais bloquée par une action en cours ou une application qui ne répond pas | fait |
 | Actions dangereuses confirmées par un deuxième Entrée | fait |
 | Ligne de raccourcis en bas, indications sur barre vide ou sans résultat | fait |
 | Aide F1 (raccourcis et exemples) | fait |
@@ -77,7 +79,7 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 
 | Commande | État |
 | --- | --- |
-| `/` : palette de toutes les commandes, Entrée ou Tab pour compléter | fait |
+| `/` : palette de toutes les commandes, Entrée ou Tab pour compléter ; module désactivable par preset | fait |
 | Tout mot-clé avec une barre oblique (`/note`, `/minuteur`, `/g`) | fait |
 | `/spotify <texte>` (recherche dans l'application, repli sur le web), `/spotify pause, suivant, precedent` | fait ; à vérifier avec Spotify et playerctl |
 | `/media` : morceau en cours et contrôles, tout lecteur | fait ; à vérifier (playerctl) |
@@ -116,7 +118,9 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | `landry doctor` : ce qui manque et comment l'installer | fait |
 | Sauvegarde complète et import sans suppression | fait |
 | Interface en français et en anglais | fait |
-| Paquet .deb ; AppImage avec les dépendances de développement | fait |
+| `./install.sh` : installation, mise à jour, réinstallation et désinstallation en une commande, dépendances comprises | fait ; à vérifier sur une machine neuve |
+| Paquet .deb avec outils recommandés installés d'office (playerctl, Tesseract…) ; AppImage avec `scripts/package.sh` | fait |
+| Lecture du texte sélectionné à l'ouverture, désactivable | fait |
 
 ## Accessibilité et confort
 
@@ -145,6 +149,5 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Applications de Weft | Trouver les programmes Windows installés par Weft, sans refaire son moteur |
 | Figma | Section 03 « Barre vivante » à aligner sur les 9 réactions de la vouivre |
 | Guide de développement | Ajouter les modules `slash` et `session`, l'assistant et le bloc `style` des presets |
-| Paquet .deb | Ajouter `playerctl` aux paquets recommandés |
-| Livraison | Fusionner la branche `feat/vouivre-direction-artistique` dans `dev`, puis passer en version 0.3.0 |
+| Livraison | Fusionner `dev` dans `main` une fois la 0.3.0 essayée sur le bureau |
 | Pistes à plus long terme | Extensions en TypeScript, intégration IA |

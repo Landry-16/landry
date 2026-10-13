@@ -86,12 +86,22 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 - [ ] Non testé sur le vrai bureau : enregistrement du raccourci et activation du service depuis l'assistant (pas de modification de la configuration GNOME de l'utilisateur pendant le développement), désinstallation réelle
 - Écartés pour l'instant : jeux Steam (demandé plus tard), moteur Windows de Weft (projet à part entière), extension GNOME pour le presse-papiers et les fenêtres (proposée, pas encore retenue)
 
+## Phase 9 : robustesse, alias, installation en une commande (0.3.0)
+- [x] La barre ne se rouvrait pas tant que Spotify tournait : `/spotify` lançait `gio open` par `util::output`, qui attendait la fermeture des tubes ; Spotify, démarré par gio, les héritait. `util::output` n'attend plus que le programme, avec une durée maximale (2 min, 10 s pour les actions « / », 2 s pour les lectures d'état)
+- [x] Ouverture de la barre sans attendre le verrou du moteur ; commandes appelées par la barre passées en async (Tauri exécute les commandes synchrones sur le fil principal)
+- [x] Lecture de la sélection asynchrone (un propriétaire de sélection qui ne répond pas bloquait la boucle GTK)
+- [x] Assistant bloqué sur « Vérification… » : le contrôle du trousseau paniquait dans le runtime async de Tauri ; contrôles déplacés sur un fil ordinaire
+- [x] Alias de commandes complètes et alias suivis d'arguments
+- [x] `./install.sh` : paquets système manquants, Rust, Node 22 vérifié par somme de contrôle si besoin, construction, installation (`apt --reinstall`, paquets recommandés compris), redémarrage, `landry doctor` ; `--uninstall` ; `LANDRY_DRY_RUN=1`
+- [x] Module « / » désactivable par preset ; lecture de la sélection désactivable (Général)
+- [ ] À vérifier : `./install.sh` sur une machine neuve (testé ici en mode `LANDRY_DRY_RUN`, construction réelle)
+
 ## À vérifier par l'utilisateur
 1. Le vrai raccourci GNOME (`scripts/install-shortcut.sh`) : la barre doit prendre le focus.
 2. Le collage automatique d'un extrait (boîte de dialogue RemoteDesktop au premier essai, puis plus de question si GNOME accepte le jeton).
 3. Pipette, capture et OCR (installer `tesseract-ocr tesseract-ocr-fra`).
 4. GitHub, Vercel et traduction avec de vrais jetons.
-5. L'AppImage après `scripts/install-deps.sh`.
+5. L'AppImage avec `scripts/package.sh` (dépendances installées par `./install.sh`).
 
 ## Prochaine étape
 Aucune phase restante. Pistes : extensions TypeScript, intégration IA prévue plus tard. Écartés pour Wayland : historique du presse-papiers (GNOME ne laisse pas lire le presse-papiers en arrière-plan) et liste des fenêtres (pas d'API sans extension GNOME Shell).
@@ -137,7 +147,7 @@ Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `wind
 
 ## Problèmes ouverts
 - Dans le bac à sable de l'agent : `~/.cargo` et `~/.npm` sont en lecture seule, `.git/config` est verrouillé, et le socket dans `$XDG_RUNTIME_DIR` est interdit. Contournements : `CARGO_HOME=$TMPDIR/cargo-home`, `npm_config_cache=$TMPDIR/npm-cache`, `git -c user.name=... -c user.email=...`, lancement du résident hors bac à sable. Rien de tout cela ne concerne une utilisation normale.
-- `libayatana-appindicator3-dev` et `librsvg2-dev` absents (icône de barre système, paquets) ; `tesseract-ocr` absent (OCR). Voir `scripts/install-deps.sh`.
+- `libayatana-appindicator3-dev` et `librsvg2-dev` absents (icône de barre système, paquets) ; `tesseract-ocr` absent (OCR). `./install.sh` les installe.
 
 ## Commandes
 ```

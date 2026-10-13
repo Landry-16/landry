@@ -79,6 +79,7 @@
         </select>
       </label>
       <label class="check"><input type="checkbox" bind:checked={autostart} onchange={toggleAutostart} /> {t('Démarrer Landry avec la session')}</label>
+      <label class="check"><input type="checkbox" bind:checked={settings.read_selection} /> {t('Lire le texte sélectionné à l’ouverture (pour maj, titre, typo…)')}</label>
       <button onclick={() => run(async () => t('Sauvegarde : {p}', { p: await invoke('backup_export') }))}>{t('Exporter une sauvegarde complète')}</button>
       <label for="backup-path">{t("Importer une sauvegarde (rien n'est supprimé, les doublons sont ignorés)")}</label>
       <div class="inline">
