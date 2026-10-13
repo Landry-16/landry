@@ -4,6 +4,7 @@ pub mod cloud;
 pub mod color;
 pub mod dates;
 pub mod money;
+pub mod organize;
 pub mod calc;
 pub mod files;
 pub mod projects;

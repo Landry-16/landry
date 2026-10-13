@@ -50,6 +50,8 @@ pub struct Engine {
     pub selection: Option<String>,
     /// Clipboard text captured just before a snippet is expanded.
     pub clipboard: String,
+    pub(crate) timers: Vec<crate::organizer::Timer>,
+    pub(crate) next_timer: u32,
 }
 
 impl Engine {
@@ -71,9 +73,12 @@ impl Engine {
             quit_requested: false,
             selection: None,
             clipboard: String::new(),
+            timers: Vec::new(),
+            next_timer: 0,
         };
         e.reload_config();
         e.reload_snippets();
+        e.reload_organizer();
         e
     }
 
@@ -87,6 +92,14 @@ impl Engine {
 
     pub fn set_index(&mut self, module: &'static str, items: Vec<Item>) {
         self.index.insert(module, items);
+    }
+
+    pub fn index_items(&self, module: &str) -> Vec<Item> {
+        self.index.get(module).cloned().unwrap_or_default()
+    }
+
+    pub fn db_ref(&self) -> Option<&usage::Db> {
+        self.db.as_ref()
     }
 
     pub fn set_apps(&mut self, apps: Vec<App>, icons: &HashMap<String, String>) {
@@ -159,7 +172,12 @@ impl Engine {
             let files = if enabled.iter().any(|m| m == "files") { self.index.get("files") } else { None };
             (Vec::new(), files.map(|f| f.iter().filter(|i| filter.matches(i)).cloned().collect()).unwrap_or_default())
         } else {
-            let dynamic = modules::query(&enabled, &self.settings, self.selection.as_deref(), query.trim());
+            let mut dynamic = if query.trim().is_empty() {
+                self.status_items(&enabled)
+            } else {
+                self.organizer_query(&enabled, query.trim())
+            };
+            dynamic.extend(modules::query(&enabled, &self.settings, self.selection.as_deref(), query.trim()));
             let mut items = Vec::new();
             for m in &enabled {
                 match m.as_str() {
@@ -191,6 +209,11 @@ impl Engine {
                 ranked.retain(|i| i.id != it.id);
                 ranked.insert(0, it);
             }
+        }
+        // Under a computed answer ("100 ht", "#ff8800"), keep only clear text matches.
+        if !dynamic.is_empty() && !query.trim().is_empty() {
+            let q = crate::search::fold(query.trim());
+            ranked.retain(|i| crate::search::fold(&i.title).contains(&q));
         }
         let mut out = dynamic;
         out.extend(ranked);
@@ -243,6 +266,8 @@ impl Engine {
             };
             if item.module == "snippets" {
                 self.run_snippet(&item, &action, arg)?
+            } else if matches!(item.module.as_str(), "notes" | "tasks" | "timers" | "tracking") {
+                self.organizer_run(&item, &action)?
             } else {
                 modules::run(&self.settings, &item, &action, arg)?
             }
@@ -403,6 +428,7 @@ mod tests {
     #[test]
     fn tool_results_come_first_and_copy() {
         let (mut e, dir) = engine();
+        assert_eq!(e.search("12*7").len(), 1, "pas de bruit sous un calcul");
         let r = e.search("b64 bonjour");
         assert_eq!(r[0].title, "Ym9uam91cg==");
         assert_eq!(e.activate(&r[0].id, "", "", "b64 bonjour").unwrap(), Outcome::Copy("Ym9uam91cg==".into()));

@@ -3,6 +3,7 @@
 (() => {
   const presets = structuredClone(window.LANDRY_PRESETS);
   let active = 'Défaut';
+  let notes = [{ id: 1, body: '# Idées pour Landry\n\n- [x] Presets\n- [ ] **Thèmes** saisonniers\n- Voir [Raycast](https://raycast.com)\n\n> Rester simple.\n\n```\nlandry toggle\n```', updated: Date.now() / 1000 - 3600 }, { id: 2, body: '# Courses\nPain, café', updated: Date.now() / 1000 - 86400 }];
   const callbacks = new Map();
   const listeners = {};
   let nextId = 1;
@@ -27,6 +28,7 @@
     { id: 'file:/home/user/Documents/facture-octobre.pdf', module: 'files', title: 'facture-octobre.pdf', subtitle: '~/Documents', icon: '', actions: fileActions },
     { id: 'proj:/home/user/dev/nacre', module: 'projects', title: 'nacre', subtitle: 'main · 2 modifiés · ~/dev/nacre', icon: '', actions: [{ id: 'editor', title: "Ouvrir dans l'éditeur" }, { id: 'terminal', title: 'Ouvrir un terminal' }, { id: 'npm:dev', title: 'npm run dev' }] },
     { id: 'snip:1', module: 'snippets', title: 'Relance devis', subtitle: 'relance · Bonjour {champ:Prénom},', icon: '', actions: [{ id: 'paste', title: 'Coller' }, { id: 'copy', title: 'Copier' }, { id: 'edit', title: "Modifier l'extrait" }] },
+    { id: 'note:view', module: 'notes', title: 'Ouvrir les notes', subtitle: 'Toutes les notes, avec recherche', icon: '', actions: [{ id: 'notes-view', title: 'Ouvrir' }] },
     { id: 'tool:diff', module: 'tools', title: 'Comparer deux textes', subtitle: 'Diff ligne par ligne', icon: '', actions: [{ id: 'view', title: 'Ouvrir' }] },
   ];
 
@@ -50,6 +52,7 @@
     activate: ({ id, action, arg }) => {
       if (id === 'cmd:settings') return { kind: 'settings' };
       if (id === 'tool:diff') return { kind: 'view', text: 'diff' };
+      if (id === 'note:view') return { kind: 'view', text: 'notes:1' };
       if (id === 'snip:1' && action === 'edit') return { kind: 'view', text: 'settings:snippets' };
       if (id === 'snip:1' && !arg) return { kind: 'ask', text: ['Prénom', 'Projet'] };
       if (id === 'snip:1') return { kind: 'paste', text: { text: arg, back: 0 } };
@@ -81,6 +84,15 @@
     snippets_list: () => [{ id: 1, name: 'Relance devis', keyword: 'relance', body: 'Bonjour {champ:Prénom},\n\nJe reviens vers vous au sujet du devis {champ:Projet} envoyé le {date}.{curseur}' }],
     snippet_save: ({ snippet }) => snippet.id || 2,
     snippet_delete: () => null,
+    notes_list: () => notes,
+    note_save: ({ id, body }) => {
+      const n = notes.find((x) => x.id === id);
+      if (n) { n.body = body; n.updated = Date.now() / 1000; return id; }
+      const nid = notes.length + 1;
+      notes.unshift({ id: nid, body, updated: Date.now() / 1000 });
+      return nid;
+    },
+    note_delete: ({ id }) => { notes = notes.filter((n) => n.id !== id); return null; },
     painted: () => null,
     hide: () => console.log('[mock] hide'),
     settings_layer: () => null,

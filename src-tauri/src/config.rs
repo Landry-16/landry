@@ -9,7 +9,10 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub const DEFAULT_NAME: &str = "Défaut";
 
 /// Every module the bar knows, in default display order.
-pub const MODULES: &[&str] = &["commands", "apps", "snippets", "text", "calc", "tools", "projects", "files", "system", "cloud"];
+pub const MODULES: &[&str] = &[
+    "commands", "timers", "tracking", "apps", "snippets", "text", "calc", "tools", "tasks", "notes", "projects", "files", "system",
+    "cloud",
+];
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]

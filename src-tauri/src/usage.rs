@@ -1,5 +1,5 @@
 //! Landry's SQLite store: usage history (frecency with time-of-day affinity), query history,
-//! snippets.
+//! snippets, notes, tasks and time tracking.
 
 use chrono::{Local, TimeZone, Timelike};
 use rusqlite::{params, Connection};
@@ -12,6 +12,29 @@ const HALF_LIFE_DAYS: f64 = 14.0;
 
 pub struct Db {
     conn: Connection,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+pub struct Note {
+    pub id: i64,
+    pub body: String,
+    pub updated: i64,
+}
+
+#[derive(serde::Serialize, Clone, Debug, PartialEq)]
+pub struct Task {
+    pub id: i64,
+    pub text: String,
+    pub due: Option<i64>,
+    pub done: bool,
+}
+
+#[derive(serde::Serialize, Clone, Debug, PartialEq)]
+pub struct TimeEntry {
+    pub id: i64,
+    pub label: String,
+    pub start: i64,
+    pub end: Option<i64>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
@@ -52,7 +75,13 @@ impl Db {
              CREATE TABLE IF NOT EXISTS queries (text TEXT PRIMARY KEY, ts INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS snippets (
                  id INTEGER PRIMARY KEY, name TEXT NOT NULL, keyword TEXT NOT NULL DEFAULT '',
-                 body TEXT NOT NULL, updated INTEGER NOT NULL);",
+                 body TEXT NOT NULL, updated INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL, updated INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS tasks (
+                 id INTEGER PRIMARY KEY, text TEXT NOT NULL, due INTEGER, done INTEGER NOT NULL DEFAULT 0,
+                 notified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS time_entries (
+                 id INTEGER PRIMARY KEY, label TEXT NOT NULL, start INTEGER NOT NULL, end INTEGER);",
         )?;
         let db = Db { conn };
         db.prune(now())?;
@@ -121,6 +150,101 @@ impl Db {
         Ok(())
     }
 
+    // ---------- Notes ----------
+
+    pub fn notes(&self) -> rusqlite::Result<Vec<Note>> {
+        let mut stmt = self.conn.prepare("SELECT id, body, updated FROM notes ORDER BY updated DESC")?;
+        let rows = stmt.query_map([], |r| Ok(Note { id: r.get(0)?, body: r.get(1)?, updated: r.get(2)? }))?;
+        rows.collect()
+    }
+
+    /// Insert (id 0) or update; returns the id.
+    pub fn save_note(&self, id: i64, body: &str) -> rusqlite::Result<i64> {
+        if id == 0 {
+            self.conn.execute("INSERT INTO notes (body, updated) VALUES (?1, ?2)", params![body, now()])?;
+            Ok(self.conn.last_insert_rowid())
+        } else {
+            self.conn.execute("UPDATE notes SET body = ?1, updated = ?2 WHERE id = ?3", params![body, now(), id])?;
+            Ok(id)
+        }
+    }
+
+    pub fn delete_note(&self, id: i64) -> rusqlite::Result<()> {
+        self.conn.execute("DELETE FROM notes WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    // ---------- Tasks ----------
+
+    pub fn add_task(&self, text: &str, due: Option<i64>) -> rusqlite::Result<i64> {
+        self.conn.execute("INSERT INTO tasks (text, due, created) VALUES (?1, ?2, ?3)", params![text, due, now()])?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    /// Open tasks, the ones with a due date first.
+    pub fn open_tasks(&self) -> rusqlite::Result<Vec<Task>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, text, due, done FROM tasks WHERE done = 0 ORDER BY due IS NULL, due, created",
+        )?;
+        let rows = stmt.query_map([], |r| Ok(Task { id: r.get(0)?, text: r.get(1)?, due: r.get(2)?, done: r.get::<_, i64>(3)? != 0 }))?;
+        rows.collect()
+    }
+
+    pub fn finish_task(&self, id: i64) -> rusqlite::Result<()> {
+        self.conn.execute("UPDATE tasks SET done = 1 WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn delete_task(&self, id: i64) -> rusqlite::Result<()> {
+        self.conn.execute("DELETE FROM tasks WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Open tasks whose reminder is due and not sent yet; marks them as sent.
+    pub fn take_due_reminders(&self, now: i64) -> rusqlite::Result<Vec<Task>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, text, due, done FROM tasks WHERE done = 0 AND notified = 0 AND due IS NOT NULL AND due <= ?1",
+        )?;
+        let due: Vec<Task> = stmt
+            .query_map([now], |r| Ok(Task { id: r.get(0)?, text: r.get(1)?, due: r.get(2)?, done: false }))?
+            .collect::<rusqlite::Result<_>>()?;
+        for t in &due {
+            self.conn.execute("UPDATE tasks SET notified = 1 WHERE id = ?1", [t.id])?;
+        }
+        Ok(due)
+    }
+
+    // ---------- Time tracking ----------
+
+    /// Start tracking `label`, stopping whatever was running.
+    pub fn start_tracking(&self, label: &str, at: i64) -> rusqlite::Result<()> {
+        self.stop_tracking(at)?;
+        self.conn.execute("INSERT INTO time_entries (label, start) VALUES (?1, ?2)", params![label, at])?;
+        Ok(())
+    }
+
+    /// Stop the running entry; returns it.
+    pub fn stop_tracking(&self, at: i64) -> rusqlite::Result<Option<TimeEntry>> {
+        let running = self.running_entry()?;
+        if let Some(e) = &running {
+            self.conn.execute("UPDATE time_entries SET end = ?1 WHERE id = ?2", params![at, e.id])?;
+        }
+        Ok(running.map(|e| TimeEntry { end: Some(at), ..e }))
+    }
+
+    pub fn running_entry(&self) -> rusqlite::Result<Option<TimeEntry>> {
+        let mut stmt = self.conn.prepare("SELECT id, label, start, end FROM time_entries WHERE end IS NULL ORDER BY start DESC LIMIT 1")?;
+        let mut rows = stmt.query_map([], |r| Ok(TimeEntry { id: r.get(0)?, label: r.get(1)?, start: r.get(2)?, end: r.get(3)? }))?;
+        rows.next().transpose()
+    }
+
+    /// Entries started at or after `since`, oldest first.
+    pub fn entries_since(&self, since: i64) -> rusqlite::Result<Vec<TimeEntry>> {
+        let mut stmt = self.conn.prepare("SELECT id, label, start, end FROM time_entries WHERE start >= ?1 ORDER BY start")?;
+        let rows = stmt.query_map([since], |r| Ok(TimeEntry { id: r.get(0)?, label: r.get(1)?, start: r.get(2)?, end: r.get(3)? }))?;
+        rows.collect()
+    }
+
     fn prune(&self, now: i64) -> rusqlite::Result<()> {
         self.conn.execute("DELETE FROM usage WHERE ts < ?1", [now - KEEP_DAYS * DAY])?;
         self.conn.execute(
@@ -173,6 +297,32 @@ mod tests {
         assert_eq!(db.snippets().unwrap(), vec![s.clone()]);
         db.delete_snippet(s.id).unwrap();
         assert!(db.snippets().unwrap().is_empty());
+    }
+
+    #[test]
+    fn notes_tasks_and_tracking() {
+        let db = mem();
+        let id = db.save_note(0, "# Idées").unwrap();
+        db.save_note(id, "# Idées\n- Landry").unwrap();
+        assert_eq!(db.notes().unwrap()[0].body, "# Idées\n- Landry");
+
+        let n = now();
+        let t1 = db.add_task("appeler", Some(n - 10)).unwrap();
+        db.add_task("lire", None).unwrap();
+        db.add_task("plus tard", Some(n + 3600)).unwrap();
+        assert_eq!(db.open_tasks().unwrap()[0].text, "appeler");
+        assert_eq!(db.take_due_reminders(n).unwrap().len(), 1);
+        assert!(db.take_due_reminders(n).unwrap().is_empty(), "un seul rappel");
+        db.finish_task(t1).unwrap();
+        assert_eq!(db.open_tasks().unwrap().len(), 2);
+
+        db.start_tracking("nacre", 1000).unwrap();
+        db.start_tracking("client B", 1600).unwrap();
+        assert_eq!(db.running_entry().unwrap().unwrap().label, "client B");
+        assert_eq!(db.stop_tracking(2000).unwrap().unwrap().end, Some(2000));
+        let e = db.entries_since(0).unwrap();
+        assert_eq!((e[0].label.as_str(), e[0].end), ("nacre", Some(1600)));
+        assert!(db.running_entry().unwrap().is_none());
     }
 
     #[test]

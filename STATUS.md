@@ -1,6 +1,6 @@
 # STATUS
 
-Phase courante : **Phase 4, organisation**
+Phase courante : **Phase 5, web et captures**
 
 ## Phase 0 : focus et raccourci
 - [x] Binaire unique `landry` : `landry daemon` (processus résident), `landry [toggle|show|hide|ping|quit]` (CLI)
@@ -45,8 +45,15 @@ Phase courante : **Phase 4, organisation**
 - [x] Transformations de la sélection (sélection primaire lue à l'ouverture) : maj, min, titre, brut, typo, mots
 - [ ] À vérifier par l'utilisateur : la boîte de dialogue RemoteDesktop au premier collage, le collage réel dans une autre application, et si GNOME 46 réutilise bien le jeton (sinon la demande revient à chaque collage)
 
+## Phase 4 : organisation
+- [x] Notes Markdown (SQLite) : vue avec liste, recherche, édition, aperçu (rendu qui échappe le HTML), enregistrement automatique ; `note <texte>` crée une note ; notes indexées dans la recherche
+- [x] Tâches : `todo <texte> [échéance]` (demain 10h, vendredi, le 24/10 14h, dans 30 min, 18h), liste, faite, suppression ; rappel par notification
+- [x] Minuteur (`minuteur 10 min pâtes`), chronomètre (`chrono`), Pomodoro 25/5 en boucle ; affichés en tête de la barre à l'ouverture
+- [x] Suivi du temps : `suivi <client>`, `suivi stop`, totaux du jour, export CSV dans Téléchargements
+- [x] Boucle d'une seconde dans le résident (minuteurs, rappels, rafraîchissement de la barre si un minuteur tourne)
+
 ## Prochaine étape
-Phase 4, étape 1 : notes Markdown (table `notes` dans `usage.rs`, module `modules/notes.rs`, vue `Notes.svelte` avec recherche), puis tâches avec rappels (`notify-rust`, minuterie dans un fil du résident), minuteur, chronomètre, Pomodoro, suivi du temps et export CSV.
+Phase 5, étape 1 : recherches web par préfixe (`settings.search_prefixes`, module `web` dans `modules/web.rs`), favoris Firefox et Chrome (copie temporaire de places.sqlite et de Bookmarks JSON), traduction via API configurable. Puis captures : capture de zone (portail Screenshot interactif), OCR (`tesseract`, absent de la machine : voir scripts/install-deps.sh), QR codes.
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -77,6 +84,8 @@ Première ouverture après démarrage : 270 à 780 ms (vue web froide).
 - Calculatrice appelée seulement si dates et montants n'ont rien compris (sinon « 15h » devient 15 heures).
 - Taux de cotisations jamais par défaut : l'utilisateur les saisit (ils changent chaque année).
 - Collage : nouvelle session RemoteDesktop à chaque fois, pour ne pas laisser l'indicateur de contrôle à distance de GNOME allumé en permanence.
+- Minuteurs en mémoire seulement : un redémarrage de Landry les perd (les tâches, notes et suivi sont en base).
+- Sous un résultat calculé (calcul, outil), seules les correspondances textuelles nettes restent affichées.
 - Textes de l'interface en dur en français pour l'instant ; extraction en dictionnaires FR/EN prévue en phase 6.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.
 

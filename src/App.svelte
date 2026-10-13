@@ -5,6 +5,7 @@
   import { applyToRoot } from './lib/theme.js';
   import Settings from './Settings.svelte';
   import Diff from './Diff.svelte';
+  import Notes from './Notes.svelte';
 
   const MODULE_LABELS = {
     apps: 'Application',
@@ -12,6 +13,10 @@
     tools: 'Outil',
     calc: 'Calcul',
     snippets: 'Extrait',
+    notes: 'Note',
+    tasks: 'Tâche',
+    timers: 'Minuteur',
+    tracking: 'Suivi',
     text: 'Texte',
     projects: 'Projet',
     files: 'Fichier',
@@ -30,6 +35,7 @@
   let selected = $state(0);
   let view = $state('bar');
   let settingsTab = $state('presets');
+  let noteId = $state(0);
   let shownCount = $state(0);
   let input = $state();
   let list = $state();
@@ -41,6 +47,7 @@
   let previewData = $state(null);
   let histPos = -1;
   let searchSeq = 0;
+  let lastQuery = null;
   let previewSeq = 0;
 
   const current = $derived(results[selected]);
@@ -57,8 +64,12 @@
     const seq = ++searchSeq;
     const r = await invoke('search', { query: q });
     if (seq === searchSeq) {
+      // Keep the selected item when the same list refreshes (live timers).
+      const keep = results[selected]?.id;
+      const i = keep ? r.findIndex((x) => x.id === keep) : -1;
       results = r;
-      selected = 0;
+      selected = q === lastQuery && i >= 0 ? i : 0;
+      lastQuery = q;
     }
   }
 
@@ -263,10 +274,11 @@
     }
   }
 
-  /** "settings:snippets" opens the settings on that tab. */
+  /** "settings:snippets" opens the settings on that tab, "notes:12" opens note 12. */
   function openView(name) {
-    const [v, tab] = name.split(':');
-    settingsTab = tab ?? 'presets';
+    const [v, arg] = name.split(':');
+    if (v === 'settings') settingsTab = arg ?? 'presets';
+    if (v === 'notes') noteId = Number(arg) || 0;
     view = v;
   }
 
@@ -283,6 +295,8 @@
     <Settings active={preset.name} {systemDark} onclose={backToBar} initialTab={settingsTab} />
   {:else if preset && view === 'diff'}
     <Diff onclose={backToBar} />
+  {:else if preset && view === 'notes'}
+    <Notes onclose={backToBar} {noteId} />
   {:else if preset}
     {#key shownCount}
       <section class="bar" aria-label="Landry">

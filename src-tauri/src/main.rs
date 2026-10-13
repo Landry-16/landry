@@ -3,6 +3,7 @@ mod config;
 mod engine;
 mod ipc;
 mod modules;
+mod organizer;
 mod paste;
 mod paths;
 mod search;
@@ -441,6 +442,29 @@ fn snippet_delete(state: State<EngineState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn notes_list(state: State<EngineState>) -> Result<Vec<usage::Note>, String> {
+    let e = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    e.db_ref().ok_or("base de données indisponible")?.notes().map_err(|e| e.to_string())
+}
+
+/// Save (id 0 creates); returns the id.
+#[tauri::command]
+fn note_save(state: State<EngineState>, id: i64, body: String) -> Result<i64, String> {
+    let mut e = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    let id = e.db_ref().ok_or("base de données indisponible")?.save_note(id, &body).map_err(|e| e.to_string())?;
+    e.reload_organizer();
+    Ok(id)
+}
+
+#[tauri::command]
+fn note_delete(state: State<EngineState>, id: i64) -> Result<(), String> {
+    let mut e = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    e.db_ref().ok_or("base de données indisponible")?.delete_note(id).map_err(|e| e.to_string())?;
+    e.reload_organizer();
+    Ok(())
+}
+
+#[tauri::command]
 fn copy_text(app: AppHandle, text: String) {
     set_clipboard(&app, text);
 }
@@ -632,6 +656,23 @@ fn index_others(app: &AppHandle) {
     modules::files::watch(settings, move |files| engine(&h).set_index("files", files));
 }
 
+/// Every second: timers and reminders, and a live refresh while timers run on screen.
+fn clock_loop(app: &AppHandle) {
+    loop {
+        std::thread::sleep(Duration::from_secs(1));
+        let (notes, running) = {
+            let mut e = engine(app);
+            (e.tick(usage::now()), e.has_timers())
+        };
+        for (title, body) in notes {
+            notify(&title, &body);
+        }
+        if running && bar(app).and_then(|w| w.is_visible().ok()).unwrap_or(false) {
+            let _ = app.emit("landry://refresh", ());
+        }
+    }
+}
+
 fn read_system_dark() -> bool {
     std::process::Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "color-scheme"])
@@ -689,6 +730,9 @@ fn daemon() {
             accounts,
             set_token,
             snippets_list,
+            notes_list,
+            note_save,
+            note_delete,
             snippet_save,
             snippet_delete,
             get_settings,
@@ -713,6 +757,8 @@ fn daemon() {
             std::thread::spawn(move || index_apps(&h));
             let h = app.handle().clone();
             std::thread::spawn(move || index_others(&h));
+            let h = app.handle().clone();
+            std::thread::spawn(move || clock_loop(&h));
             let h = app.handle().clone();
             modules::cloud::on_update(move || {
                 let _ = h.emit("landry://refresh", ());
