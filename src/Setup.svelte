@@ -1,6 +1,7 @@
 <script>
   // First-run assistant: shortcut, start with the session, look, optional tools.
   // Every step is optional and can be done again; reopen with /bienvenue or `landry setup`.
+  import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { t } from './lib/i18n.svelte.js';
   import { fromEvent, label } from './lib/accel.js';
@@ -13,7 +14,8 @@
   let captured = $state('');
   let listening = $state(false);
   let presets = $state([]);
-  let current = $state(active);
+  // Initial value only: the assistant tracks the preset it switches to.
+  let current = $state(untrack(() => active));
   let status = $state('');
   let failure = $state('');
   let root = $state();

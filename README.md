@@ -8,18 +8,23 @@ La liste complète des fonctionnalités, avec leur état et ce qui reste à fair
 
 ## Installation
 
+Une seule commande installe, met à jour ou réinstalle Landry, avec tout ce dont il a besoin :
+
 ```bash
-scripts/install-deps.sh        # dépendances système (demande sudo)
-npm install
-scripts/package.sh             # construit dist-packages/landry_<version>_amd64.deb (et l'AppImage si les dépendances sont là)
-sudo apt install ./dist-packages/landry_0.2.0_amd64.deb
+./install.sh
 ```
 
-`landry doctor` vérifie ensuite que tout est en place.
+Sans clone du dépôt :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Landry-16/landry/dev/install.sh | bash
+```
+
+Le script installe ce qui manque (paquets système, Rust, Node 22 dans `~/.local/share/landry/node` si celui du système est trop ancien), construit le paquet, l'installe avec les outils recommandés (playerctl, Tesseract…), relance Landry et termine par `landry doctor`. Il ne demande le mot de passe que pour apt. Relance-le après chaque `git pull` pour mettre à jour. `./install.sh --uninstall` retire Landry et garde tes réglages et tes données.
 
 Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script continue quand même. Pour faire disparaître l'erreur, retire le dépôt concerné, par exemple `sudo add-apt-repository --remove ppa:alexlarsson/flatpak`.
 
-Sans les dépendances de développement, `scripts/package.sh` construit quand même le `.deb` avec `dpkg-deb`. L'AppImage passe par le bundler Tauri, qui a besoin de `libayatana-appindicator3-dev`.
+Pour fabriquer des paquets à distribuer (`.deb` et AppImage dans `dist-packages/`) : `scripts/package.sh`.
 
 ## Premier lancement
 

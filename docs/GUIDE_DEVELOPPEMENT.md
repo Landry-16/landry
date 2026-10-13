@@ -23,9 +23,9 @@ Machine visée : Ubuntu 24.04, GNOME 46, session Wayland.
 | --- | --- | --- |
 | Rust (rustup) | 1.98 | `curl https://sh.rustup.rs -sSf \| sh` |
 | Node.js et npm | Node 22, npm 10 | paquet `nodejs` ou nvm |
-| Bibliothèques système | voir le script | `scripts/install-deps.sh` (demande sudo) |
+| Bibliothèques système | voir le script | `./install.sh` les installe (demande sudo) |
 
-`scripts/install-deps.sh` installe la chaîne de compilation, WebKitGTK 4.1, les en-têtes nécessaires à Tauri (dont `libayatana-appindicator3-dev` pour l'icône de barre système) et Tesseract pour l'OCR. Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script continue quand même et l'installation se fait avec les listes déjà connues.
+`./install.sh` installe la chaîne de compilation, WebKitGTK 4.1, les en-têtes nécessaires à Tauri (dont `libayatana-appindicator3-dev` pour l'icône de barre système) et Tesseract pour l'OCR. Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script continue quand même et l'installation se fait avec les listes déjà connues.
 
 Outils utilisés à l'exécution (vérifiés par `landry doctor`) : `gio`, `gsettings`, `git`, `zip`, `gnome-terminal`, l'éditeur configuré (`code` par défaut), `tesseract`, et en option `docker`.
 
@@ -35,7 +35,7 @@ Outils utilisés à l'exécution (vérifiés par `landry doctor`) : `gio`, `gset
 git clone git@github.com:Landry-16/landry.git
 cd landry
 git checkout dev
-scripts/install-deps.sh
+./install.sh
 npm install
 ```
 
@@ -246,7 +246,8 @@ landry/
 │           ├── text.rs       transformations de texte
 │           └── scripts.rs    scripts utilisateur
 ├── dev/                      maquette de l'interface sans Tauri
-├── scripts/                  install-deps, install-shortcut, package
+├── install.sh                installation, mise à jour, désinstallation en une commande
+├── scripts/                  install-shortcut, package
 ├── docs/                     ce guide, prompt d'origine
 └── STATUS.md                 avancement, mesures, décisions
 ```
@@ -344,8 +345,8 @@ Le build release (LTO) prend environ 3 minutes. Les paquets sont écrits dans `d
 | --- | --- |
 | `landry daemon` : « un processus résident Landry tourne déjà » | un autre résident tient le socket : `landry quit` (ou celui de la version installée) |
 | fenêtre vide en développement | binaire construit sans `--features custom-protocol` et Vite arrêté : utilise `npx tauri dev -- -- daemon` |
-| `npx tauri build` : « Can't detect any appindicator library » | `libayatana-appindicator3-dev` manque : `scripts/install-deps.sh`, ou `scripts/package.sh` qui sait s'en passer pour le `.deb` |
-| `install-deps.sh` : erreur de dépôt pendant `apt-get update` | dépôt tiers cassé, sans gravité ; pour le retirer : `sudo add-apt-repository --remove ppa:<nom>` |
+| `npx tauri build` : « Can't detect any appindicator library » | `libayatana-appindicator3-dev` manque : `./install.sh`, ou `scripts/package.sh` qui sait s'en passer pour le `.deb` |
+| `install.sh` : erreur de dépôt pendant `apt-get update` | dépôt tiers cassé, sans gravité ; pour le retirer : `sudo add-apt-repository --remove ppa:<nom>` |
 | le raccourci n'ouvre rien | `landry doctor` ; vérifie le chemin passé à `scripts/install-shortcut.sh` |
 | la barre ne prend pas le focus | lance `LANDRY_TIMING=1 landry show` et regarde `focused=` ; note le résultat dans `STATUS.md` |
 | le collage automatique ne colle pas | refus du portail ou jeton non réutilisé par GNOME : supprime `~/.local/share/landry/remote-desktop.token` et réessaie ; l'extrait reste dans le presse-papiers |

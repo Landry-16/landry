@@ -106,7 +106,8 @@ fn show_bar(app: &AppHandle, token: String) -> String {
     // first paint so it never delays the bar; a slow source app only delays this.
     let h = app.clone();
     std::thread::spawn(move || {
-        let sel = read_selection(&h, true).filter(|s| !s.trim().is_empty() && s.len() < 100_000);
+        let wanted = engine(&h).settings.read_selection;
+        let sel = if wanted { read_selection(&h, true).filter(|s| !s.trim().is_empty() && s.len() < 100_000) } else { None };
         engine(&h).selection = sel;
     });
     let paint_ms = start.elapsed().as_millis();
@@ -313,7 +314,7 @@ fn capture(app: &AppHandle, kind: &str) {
                 let _ = app.emit("landry://notice", tf("Texte copié : {t}", &[("t", &preview)]));
             }
             Ok(_) => notify("OCR", "Aucun texte reconnu dans cette zone."),
-            Err(e) => notify("OCR indisponible", &tf("{e}. Installe tesseract-ocr et tesseract-ocr-fra (scripts/install-deps.sh).", &[("e", &e)])),
+            Err(e) => notify("OCR indisponible", &tf("{e}. Installe tesseract-ocr et tesseract-ocr-fra (relance ./install.sh).", &[("e", &e)])),
         }
         return;
     }
