@@ -10,7 +10,7 @@ Cible : Ubuntu 24.04, GNOME 46, session Wayland. Pile : Tauri 2 (Rust) et Svelte
 scripts/install-deps.sh        # dépendances système (demande sudo)
 npm install
 scripts/package.sh             # construit dist-packages/landry_<version>_amd64.deb (et l'AppImage si les dépendances sont là)
-sudo apt install ./dist-packages/landry_0.1.0_amd64.deb
+sudo apt install ./dist-packages/landry_0.2.0_amd64.deb
 ```
 
 `landry doctor` vérifie ensuite que tout est en place.
@@ -104,13 +104,16 @@ Tout fichier de `~/.config/landry/scripts` (shell, Python, Node, ou exécutable)
 
 ## Développement
 
+Le guide complet est dans [docs/GUIDE_DEVELOPPEMENT.md](docs/GUIDE_DEVELOPPEMENT.md) : prérequis, lancement, architecture, arborescence, recettes pour ajouter un module, un réglage ou une traduction, paquets, dépannage et conventions.
+
+L'essentiel :
+
 ```bash
 npm install
-npm run build && (cd src-tauri && cargo build --features custom-protocol)
+npx tauri dev -- -- daemon        # résident en développement, interface rechargée à chaud
 src-tauri/target/debug/landry toggle
-npm test                          # tests de l'interface (Vitest)
 (cd src-tauri && cargo test)      # tests du cœur
-npx vite --port 1420              # puis http://localhost:1420/dev/mock.html : l'interface sans Tauri
+npm test                          # tests de l'interface
 ```
 
-`LANDRY_KEEP_OPEN=1` empêche la barre de se cacher quand elle perd le focus. L'état d'avancement et les décisions sont dans `STATUS.md`.
+L'état d'avancement, les mesures et les décisions sont dans `STATUS.md`.
