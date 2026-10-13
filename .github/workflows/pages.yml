@@ -1,11 +1,9 @@
 name: Site
 
-# Publishes site/ on GitHub Pages. Needs Pages turned on (Settings, Pages, source: GitHub Actions);
-# on a private repository, GitHub Pages needs a paid plan.
+# Publishes site/ on GitHub Pages. Run it from the Actions tab once Pages is turned on (Settings,
+# Pages, source: GitHub Actions); on a private repository Pages needs a paid plan. To publish on
+# every change instead, add: push: { branches: [dev], paths: ["site/**"] }
 on:
-  push:
-    branches: [dev]
-    paths: ["site/**"]
   workflow_dispatch:
 
 permissions:
