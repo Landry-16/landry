@@ -7,6 +7,7 @@
   import Ornaments from './Ornaments.svelte';
   import Particles from './Particles.svelte';
   import Help from './Help.svelte';
+  import Setup from './Setup.svelte';
   import Settings from './Settings.svelte';
   import { i18n, t } from './lib/i18n.svelte.js';
   import Diff from './Diff.svelte';
@@ -118,7 +119,11 @@
     warning = s.warning ?? '';
     history = s.history;
     i18n.locale = s.locale;
+    // First launch: the assistant opens by itself until it is closed once.
+    firstRun = s.first_run;
+    if (firstRun && view === 'bar') view = 'setup';
   }
+  let firstRun = false;
 
   async function runSearch(q) {
     const seq = ++searchSeq;
@@ -163,7 +168,7 @@
   });
 
   function resetBar() {
-    view = 'bar';
+    view = firstRun ? 'setup' : 'bar';
     help = false;
     query = '';
     error = '';
@@ -392,6 +397,14 @@
 <div class="overlay" class:centered={view !== 'bar'} onmousedown={(e) => e.target === e.currentTarget && invoke('hide')}>
   {#if preset && view === 'settings'}
     <Settings active={preset.name} {systemDark} onclose={backToBar} initialTab={settingsTab} />
+  {:else if preset && view === 'setup'}
+    <Setup
+      active={preset.name}
+      onclose={() => {
+        firstRun = false;
+        backToBar();
+      }}
+    />
   {:else if preset && view === 'diff'}
     <Diff onclose={backToBar} />
   {:else if preset && view === 'notes'}

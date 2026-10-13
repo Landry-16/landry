@@ -41,6 +41,7 @@ const NATIVE: &[Cmd] = &[
     Cmd { name: "tuer", aliases: &["kill", "processus"], usage: "/tuer <processus>", desc: "Trouver et arrêter un processus" },
     Cmd { name: "meteo", aliases: &["weather"], usage: "/meteo [ville]", desc: "Météo du jour et des deux suivants" },
     Cmd { name: "aide", aliases: &["help"], usage: "/aide", desc: "Raccourcis clavier et exemples" },
+    Cmd { name: "bienvenue", aliases: &["setup", "assistant"], usage: "/bienvenue", desc: "Raccourci, démarrage, apparence : l'assistant de premier lancement" },
 ];
 
 /// Keywords of other modules, listed in the palette. "/word text" runs as "word text".
@@ -172,6 +173,7 @@ fn run_native(settings: &Settings, name: &str, arg: &str) -> Vec<Item> {
         "reglages" => panels(arg),
         "tuer" => processes(arg),
         "meteo" => crate::modules::cloud::cached(&format!("meteo\t{arg}"), settings, weather),
+        "bienvenue" => vec![item("setup", t("Assistant de premier lancement"), t("Raccourci, démarrage, apparence, outils"), vec![(Action::new("", "Ouvrir"), step("view", &["setup"]))])],
         "aide" => vec![item("help", t("Aide"), t("Raccourcis clavier et exemples"), vec![(Action::new("", "Ouvrir"), step("view", &["help"]))])],
         _ => vec![],
     }

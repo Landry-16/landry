@@ -19,25 +19,31 @@ Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script contin
 
 Sans les dépendances de développement, `scripts/package.sh` construit quand même le `.deb` avec `dpkg-deb`. L'AppImage passe par le bundler Tauri, qui a besoin de `libayatana-appindicator3-dev`.
 
-## Le raccourci
+## Premier lancement
 
-GNOME 46 n'a pas encore le portail des raccourcis globaux. Landry passe par un raccourci personnalisé de GNOME qui exécute `landry toggle` :
+Lance `landry` (ou Landry depuis la liste des applications). Un assistant s'ouvre, une seule fois, avec quatre réglages facultatifs :
 
-```bash
-scripts/install-shortcut.sh /usr/bin/landry '<Control><Alt>space'
-```
+1. le raccourci clavier : appuie sur la combinaison voulue, ou garde Ctrl+Alt+Espace ;
+2. le démarrage avec la session ;
+3. l'apparence, en un clic sur un preset ;
+4. les outils facultatifs qui manquent, avec la commande à copier.
 
-Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
+On le rouvre avec `/bienvenue` dans la barre ou `landry setup`.
+
+GNOME 46 n'a pas encore le portail des raccourcis globaux : le raccourci est un raccourci personnalisé de GNOME qui exécute `landry toggle`. `scripts/install-shortcut.sh` fait la même chose en ligne de commande. Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
 
 ## Démarrage
 
-`landry` (ou `landry toggle`) démarre le processus résident s'il ne tourne pas, puis ouvre la barre. Pour l'avoir dès l'ouverture de session : Réglages, onglet Général, « Démarrer Landry avec la session ». Une icône dans la barre du haut donne accès à la barre, aux réglages et à l'arrêt.
+`landry` (ou `landry toggle`) démarre le processus résident s'il ne tourne pas, puis ouvre la barre. « Démarrer avec la session » (assistant, ou Réglages, onglet Général) installe un service systemd utilisateur (`~/.config/systemd/user/landry.service`) : Landry est prêt dès la connexion et redémarre tout seul après un plantage, mais pas après « Quitter ». Sans systemd utilisateur, Landry revient à une entrée de démarrage automatique classique. Une icône dans la barre du haut donne accès à la barre, aux réglages et à l'arrêt.
+
+Les applications installées ou supprimées apparaissent et disparaissent de la barre d'elles-mêmes, sans redémarrer Landry. Une application Flatpak ou Snap se désinstalle depuis la barre : Ctrl+K, « Désinstaller », puis Entrée pour confirmer (le mot de passe est demandé si besoin). Les paquets apt restent du ressort de Logiciels Ubuntu.
 
 ## Ligne de commande
 
 | Commande | Effet |
 | --- | --- |
 | `landry toggle` | ouvre ou ferme la barre |
+| `landry setup` | ouvre l'assistant de premier lancement |
 | `landry doctor` | vérifie l'installation (raccourci, portails, outils) et dit quoi corriger |
 | `landry search <texte>` | affiche les résultats sans ouvrir la barre |
 | `landry run <texte>` | exécute le premier résultat |
@@ -89,6 +95,7 @@ Tape `/` pour voir toutes les commandes ; Entrée ou Tab complète celle qui est
 | `/tuer firefox` | processus correspondants, les plus gourmands d'abord, arrêt en deux temps |
 | `/meteo Lyon` | météo du jour et des deux suivants (wttr.in, seulement quand tu la demandes) |
 | `/aide` | l'aide de la barre |
+| `/bienvenue` | l'assistant de premier lancement |
 
 ## Presets
 

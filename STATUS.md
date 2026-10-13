@@ -78,6 +78,14 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 - [x] Accessibilité et confort : nombre de résultats annoncé aux lecteurs d'écran, aide F1, zoom Ctrl+plus/moins, pied de raccourcis, indications sur barre vide, couleurs forcées, Entrée deux fois pour une action dangereuse
 - [ ] Non testé sur le vrai bureau : la vouivre et les ornements dans la vraie fenêtre (vérifiés dans la maquette `dev/mock.html`), `/spotify` avec l'application installée, `/luminosite` sur un portable, `/media` (playerctl absent de la machine)
 
+## Phase 8 : idées reprises de Weft (PhilibertG/Weft)
+- [x] Assistant de premier lancement : raccourci saisi au clavier, démarrage avec la session, preset en un clic, outils facultatifs manquants avec la commande à copier ; idempotent ; `/bienvenue`, `landry setup`
+- [x] Service systemd utilisateur (`Restart=on-failure`), repli sur l'entrée XDG autostart, migration de l'ancienne entrée ; un second résident sort avec le code 0 (pas de boucle de redémarrage) ; la CLI démarre le résident par systemd quand le service existe
+- [x] Index des applications mis à jour à l'installation et à la désinstallation (surveillance des dossiers `applications`, 2 s de calme)
+- [x] Désinstaller une application Flatpak (`--user` ou `--system` selon l'emplacement) ou Snap (`pkexec snap remove`) depuis Ctrl+K, avec confirmation ; limite de 15 min pour laisser le temps du mot de passe
+- [ ] Non testé sur le vrai bureau : enregistrement du raccourci et activation du service depuis l'assistant (pas de modification de la configuration GNOME de l'utilisateur pendant le développement), désinstallation réelle
+- Écartés pour l'instant : jeux Steam (demandé plus tard), moteur Windows de Weft (projet à part entière), extension GNOME pour le presse-papiers et les fenêtres (proposée, pas encore retenue)
+
 ## À vérifier par l'utilisateur
 1. Le vrai raccourci GNOME (`scripts/install-shortcut.sh`) : la barre doit prendre le focus.
 2. Le collage automatique d'un extrait (boîte de dialogue RemoteDesktop au premier essai, puis plus de question si GNOME accepte le jeton).
@@ -121,6 +129,8 @@ Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `wind
 - Minuteurs enregistrés en base : ils survivent à un redémarrage ; un minuteur échu pendant l'arrêt est notifié au redémarrage.
 - Sous un résultat calculé (calcul, outil), seules les correspondances textuelles nettes restent affichées.
 - Interface et cœur traduits : un seul dictionnaire `src/i18n/en.json` (clé = texte français), lu par Svelte (`t()`) et par Rust (`i18n::t`, `i18n::tf`) ; titres d'actions traduits à la sortie du moteur ; index reconstruits à l'enregistrement des réglages. Restent en français : la CLI (`landry doctor`, réponses de `landry …`) et les journaux.
+- L'assistant de premier lancement s'ouvre tant qu'il n'a pas été fermé une fois (Échap ou « C'est parti »), marqueur `~/.config/landry/.setup-done`.
+- Démarrage avec la session : le service est seulement activé, pas démarré, quand un résident tourne déjà ; systemd prend le relais à la connexion suivante.
 - Commandes « / » : une commande inconnue redevient la recherche sans la barre oblique, pour ne rien déclarer deux fois. Les actions instantanées et risquées (veille, arrêt de processus) demandent deux fois Entrée ; extinction, redémarrage et déconnexion passent par la confirmation de GNOME.
 - La vouivre vit dans le champ de saisie ; les ornements débordent du cadre mais ne couvrent jamais les résultats.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.

@@ -38,7 +38,11 @@
     (listeners[event] ?? []).forEach((id) => callbacks.get(id)?.({ event, id: 0, payload }));
 
   const commands = {
-    ui_state: () => ({ preset: preset(), warning: null, history: ['vsc', 'term'], locale: new URLSearchParams(location.search).get('lang') ?? 'fr', system_dark: matchMedia('(prefers-color-scheme: dark)').matches }),
+    setup_state: () => ({ shortcut: null, autostart: false, missing: [['playerctl (/spotify, /media)', 'sudo apt install playerctl'], ['tesseract (OCR)', 'sudo apt install tesseract-ocr tesseract-ocr-fra']] }),
+    shortcut_set: () => null,
+    setup_done: () => null,
+    autostart_set: () => null,
+    ui_state: () => ({ first_run: new URLSearchParams(location.search).has('first'), preset: preset(), warning: null, history: ['vsc', 'term'], locale: new URLSearchParams(location.search).get('lang') ?? 'fr', system_dark: matchMedia('(prefers-color-scheme: dark)').matches }),
     search: ({ query }) => {
       const cmds = [{ id: 'cmd:settings', module: 'commands', title: 'Réglages Landry', subtitle: 'Presets, apparence, alias', icon: '' }].concat(
         presets.map((p) => ({ id: `cmd:preset:${p.name}`, module: 'commands', title: `Preset : ${p.name}`, subtitle: p.name === active ? 'Preset actif' : 'Changer de preset', icon: '' })),
