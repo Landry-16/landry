@@ -33,6 +33,7 @@
     slash: 'Commande',
     windows: 'Fenêtre',
     clipboard: 'Presse-papiers',
+    emoji: 'Caractère',
   };
   const moduleLabel = (m) => (MODULE_LABELS[m] ? t(MODULE_LABELS[m]) : m);
 

@@ -42,6 +42,8 @@ const NATIVE: &[Cmd] = &[
     Cmd { name: "meteo", aliases: &["weather"], usage: "/meteo [ville]", desc: "Météo du jour et des deux suivants" },
     Cmd { name: "fenetres", aliases: &["fenetre", "windows"], usage: "/fenetres [texte]", desc: "Passer à une fenêtre ouverte" },
     Cmd { name: "presse-papiers", aliases: &["clip", "historique", "pressepapiers"], usage: "/presse-papiers [texte]", desc: "Historique du presse-papiers" },
+    Cmd { name: "emoji", aliases: &["emojis", "smiley"], usage: "/emoji <mots>", desc: "Chercher un émoji, en français ou en anglais" },
+    Cmd { name: "car", aliases: &["caractere", "caracteres", "char"], usage: "/car <mots>", desc: "Caractères spéciaux : tirets, espaces, guillemets, symboles" },
     Cmd { name: "aide", aliases: &["help"], usage: "/aide", desc: "Raccourcis clavier et exemples" },
     Cmd { name: "bienvenue", aliases: &["setup", "assistant"], usage: "/bienvenue", desc: "Raccourci, démarrage, apparence : l'assistant de premier lancement" },
 ];
@@ -183,6 +185,8 @@ fn run_native(settings: &Settings, name: &str, arg: &str) -> Vec<Item> {
         "bienvenue" => vec![item("setup", t("Assistant de premier lancement"), t("Raccourci, démarrage, apparence, outils"), vec![(Action::new("", "Ouvrir"), step("view", &["setup"]))])],
         "fenetres" => crate::modules::shell::window_items(arg),
         "presse-papiers" => crate::modules::shell::clipboard_items(arg),
+        "emoji" => crate::modules::emoji::emojis(arg, 30),
+        "car" => crate::modules::emoji::chars(arg, 30),
         "aide" => vec![item("help", t("Aide"), t("Raccourcis clavier et exemples"), vec![(Action::new("", "Ouvrir"), step("view", &["help"]))])],
         _ => vec![],
     }

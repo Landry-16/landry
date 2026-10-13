@@ -50,10 +50,16 @@ pub struct Item {
     pub data: String,
 }
 
-/// Lowercase and strip French and common Latin accents.
+/// Lowercase, strip French and common Latin accents, and spell out the ligatures (« cœur » is
+/// found by « coeur »).
 pub fn fold(s: &str) -> String {
     s.chars()
         .flat_map(|c| c.to_lowercase())
+        .flat_map(|c| match c {
+            'œ' => "oe".chars().collect::<Vec<_>>(),
+            'æ' => "ae".chars().collect(),
+            c => vec![c],
+        })
         .map(|c| match c {
             'à' | 'â' | 'ä' | 'á' | 'ã' | 'å' => 'a',
             'ç' => 'c',
@@ -180,6 +186,11 @@ mod tests {
     #[test]
     fn initials_find_vscode() {
         assert_eq!(titles(&sample(), "vsc", &HashMap::new())[0], "Visual Studio Code");
+    }
+
+    #[test]
+    fn ligatures_are_spelled_out() {
+        assert_eq!(fold("Cœur Æther"), "coeur aether");
     }
 
     #[test]
