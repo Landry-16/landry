@@ -14,8 +14,8 @@
       {
         "label": "bar",
         "title": "Landry",
-        "width": 720,
-        "height": 460,
+        "width": 1920,
+        "height": 1080,
         "decorations": false,
         "transparent": true,
         "visible": false,

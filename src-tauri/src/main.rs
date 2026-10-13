@@ -935,11 +935,11 @@ fn daemon() {
             None
         }
     };
-    let engine = Engine::new(config::Store::new(paths::config_dir()), db);
+    let core = Engine::new(config::Store::new(paths::config_dir()), db);
 
     tauri::Builder::default()
         .manage(Painted(Mutex::new(None)))
-        .manage(EngineState(Mutex::new(engine)))
+        .manage(EngineState(Mutex::new(core)))
         .invoke_handler(tauri::generate_handler![
             ui_state,
             search,

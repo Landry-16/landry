@@ -91,7 +91,8 @@ Sous Wayland une application ne peut pas placer sa fenêtre. Deux modes, choisis
 - `screen` (défaut) : fenêtre transparente de la taille de l'écran, barre placée en CSS (ancre, marge, décalages). Ouverture 68 à 116 ms.
 - `window` (preset Minimal) : fenêtre de la taille de la barre, placée par GNOME (`center-new-windows` vaut false ici, donc position non garantie). Ouverture 32 à 43 ms.
 Essayé sans gain : état plein écran (plus lent), vue web réduite dans une grande fenêtre GTK (même coût : c'est la surface Wayland qui coûte), modes de rendu WebKit (plus lents).
-Première ouverture après démarrage : 270 à 780 ms (vue web froide).
+Première ouverture après démarrage : 200 à 1000 ms (vue web froide) ; la fenêtre part en 1920x1080 puis s'ajuste à l'écran (GTK n'applique la taille qu'à l'affichage).
+Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `window` 43 à 62 ms.
 
 ## Décisions
 - Un seul binaire pour la CLI et le résident (plus simple à installer et à mettre à jour).
