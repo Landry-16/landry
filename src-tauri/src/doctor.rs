@@ -16,12 +16,7 @@ fn check(label: &str, ok: bool, hint: &str, optional: bool) -> Check {
     Check { label: label.into(), ok, hint: hint.into(), optional }
 }
 
-fn has(program: &str) -> bool {
-    std::process::Command::new("sh")
-        .args(["-c", "command -v \"$1\" >/dev/null", "sh", program])
-        .status()
-        .is_ok_and(|s| s.success())
-}
+use util::has;
 
 fn portal_interfaces() -> String {
     util::output(

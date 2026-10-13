@@ -86,6 +86,11 @@ pub fn output_within(program: &str, args: &[&str], cwd: Option<&Path>, limit: Du
     }
 }
 
+/// Whether a program is on the PATH.
+pub fn has(program: &str) -> bool {
+    Command::new("sh").args(["-c", "command -v \"$1\" >/dev/null", "sh", program]).status().is_ok_and(|s| s.success())
+}
+
 /// Open a file, folder or URL with the default application.
 pub fn open(target: &str) -> Result<(), String> {
     spawn("gio", &["open".into(), target.into()], None)

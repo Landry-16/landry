@@ -61,7 +61,11 @@
           "tesseract-ocr",
           "tesseract-ocr-fra",
           "git",
-          "gnome-keyring"
+          "gnome-keyring",
+          "ffmpeg",
+          "imagemagick",
+          "poppler-utils",
+          "ghostscript"
         ]
       }
     }

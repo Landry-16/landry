@@ -364,6 +364,9 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
             Outcome::Message(tf("{p} mis à la corbeille", &[("p", &pretty(p))]))
         }
         other => {
+            if let Some(kind) = other.strip_prefix("convert:") {
+                return crate::modules::convert::run(p, kind);
+            }
             if let Some(app_id) = other.strip_prefix("open-with:") {
                 open_with(app_id, path)?;
                 return Ok(Outcome::Hide);
@@ -378,13 +381,14 @@ pub fn extra_actions(item: &Item) -> Vec<Action> {
     use gtk::gio::prelude::AppInfoExt;
     let Some((_, false, path)) = parts(item) else { return vec![] };
     let (ctype, _) = gtk::gio::content_type_guess(Some(path), &[]);
-    gtk::gio::AppInfo::recommended_for_type(&ctype)
+    let mut out = crate::modules::convert::actions(Path::new(path));
+    out.extend(gtk::gio::AppInfo::recommended_for_type(&ctype)
         .into_iter()
         .filter_map(|a| {
             let id = a.id()?;
             Some(Action::new(&format!("open-with:{id}"), &tf("Ouvrir avec {app}", &[("app", &a.display_name())])))
-        })
-        .collect()
+        }));
+    out
 }
 
 fn open_with(app_id: &str, path: &str) -> Result<(), String> {

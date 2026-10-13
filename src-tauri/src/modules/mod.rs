@@ -2,6 +2,7 @@
 
 pub mod cloud;
 pub mod color;
+pub mod convert;
 pub mod dates;
 pub mod emoji;
 pub mod money;
