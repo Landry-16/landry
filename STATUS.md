@@ -96,6 +96,16 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 - [x] Module « / » désactivable par preset ; lecture de la sélection désactivable (Général)
 - [ ] À vérifier : `./install.sh` sur une machine neuve (testé ici en mode `LANDRY_DRY_RUN`, construction réelle)
 
+## Phase 10 : fenêtres, presse-papiers, caractères, conversions, dictionnaire, contenu, publication (0.4.0)
+- [x] Extension GNOME Shell `landry@landry-16.github.io` (D-Bus `dev.landry.Shell`, réservée aux programmes `landry`) : fenêtres (liste par usage récent, activation, fermeture) et historique du presse-papiers (100 textes en mémoire, secrets des gestionnaires de mots de passe ignorés) ; testée dans un GNOME Shell imbriqué avec bus et réglages isolés
+- [x] Basculer vers la fenêtre d'une application ouverte, fenêtres dans la recherche, `/fenetres`, `/presse-papiers`
+- [x] `/emoji` (données emojibase, `scripts/emoji-data.py`), `/car` ; la recherche décompose les ligatures (œ, æ)
+- [x] Convertisseur dans Ctrl+K (ImageMagick, Poppler, Ghostscript, LibreOffice, FFmpeg), jamais d'écrasement
+- [x] `/def`, `/syn` : Wiktionnaire (wikitext), Wiktionary REST, Datamuse
+- [x] `/contenu` : ripgrep ou grep, dossiers indexés et projets
+- [x] README anglais, site `site/` et workflow Pages, workflows `ci.yml` et `release.yml`, `install.sh --release` et `--source`
+- [ ] À vérifier : extension sur le vrai bureau après reconnexion, conversions images, vidéo et audio, premiers passages des workflows GitHub
+
 ## À vérifier par l'utilisateur
 1. Le vrai raccourci GNOME (`scripts/install-shortcut.sh`) : la barre doit prendre le focus.
 2. Le collage automatique d'un extrait (boîte de dialogue RemoteDesktop au premier essai, puis plus de question si GNOME accepte le jeton).
@@ -141,6 +151,8 @@ Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `wind
 - Interface et cœur traduits : un seul dictionnaire `src/i18n/en.json` (clé = texte français), lu par Svelte (`t()`) et par Rust (`i18n::t`, `i18n::tf`) ; titres d'actions traduits à la sortie du moteur ; index reconstruits à l'enregistrement des réglages. Restent en français : la CLI (`landry doctor`, réponses de `landry …`) et les journaux.
 - L'assistant de premier lancement s'ouvre tant qu'il n'a pas été fermé une fois (Échap ou « C'est parti »), marqueur `~/.config/landry/.setup-done`.
 - Démarrage avec la session : le service est seulement activé, pas démarré, quand un résident tourne déjà ; systemd prend le relais à la connexion suivante.
+- Fenêtres et presse-papiers passent par une extension GNOME Shell livrée avec Landry plutôt que par une extension tierce : interface stable, réponse réservée à Landry, historique jamais écrit sur le disque. Landry l'appelle par `gdbus` ; l'extension accepte un appelant dont l'exécutable, ou celui de son parent, s'appelle `landry`.
+- `install.sh` : depuis un clone il compile (travail sur Landry), sinon il préfère le paquet publié.
 - Commandes « / » : une commande inconnue redevient la recherche sans la barre oblique, pour ne rien déclarer deux fois. Les actions instantanées et risquées (veille, arrêt de processus) demandent deux fois Entrée ; extinction, redémarrage et déconnexion passent par la confirmation de GNOME.
 - La vouivre vit dans le champ de saisie ; les ornements débordent du cadre mais ne couvrent jamais les résultats.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.

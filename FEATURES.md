@@ -26,9 +26,13 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Fonctionnalité | Exemple | État |
 | --- | --- | --- |
 | Applications (XDG, Flatpak, Snap) avec icônes | `vsc`, `paramètres` | fait |
+| Basculer vers la fenêtre d'une application déjà ouverte (Ctrl+K, « Nouvelle fenêtre », en ouvre une autre) | `firefox` | fait ; testé dans un GNOME Shell imbriqué |
+| Fenêtres ouvertes dans la recherche, et `/fenetres` | `/fenetres` | fait ; testé dans un GNOME Shell imbriqué |
+| Recherche dans le contenu des fichiers (ripgrep ou grep) | `/contenu devis 2024` | fait |
 | Index des applications mis à jour à l'installation et à la suppression | | fait |
 | Désinstaller une application Flatpak ou Snap | Ctrl+K, « Désinstaller » | fait ; à vérifier |
 | Fichiers (dossiers XDG, récents, favoris), filtres de type et de date | `pdf: facture`, `img: <7j` | fait |
+| Convertisseur dans Ctrl+K : images, PDF, documents, vidéo, audio | Ctrl+K sur un fichier | fait ; PDF et documents vérifiés en vrai, images, vidéo et audio à vérifier (FFmpeg et ImageMagick absents ici) |
 | Actions fichiers : ouvrir, dossier, terminal, renommer, déplacer, compresser, corbeille, ouvrir avec | | fait |
 | Projets git : branche, état, éditeur, terminal, pull, PR, scripts npm | `nacre` | fait |
 | Ports occupés, arrêt du processus | `port 5173` | fait |
@@ -51,6 +55,9 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Fonctionnalité | Exemple | État |
 | --- | --- | --- |
 | Extraits avec variables (date, presse-papiers, curseur, champs) | nom de l'extrait | fait |
+| Historique du presse-papiers : 100 textes en mémoire, mots de passe ignorés, pause et vidage | `/presse-papiers`, `/clip` | fait ; testé dans un GNOME Shell imbriqué |
+| Émojis (1914, noms français et anglais) et caractères spéciaux | `/emoji coeur`, `/car tiret` | fait |
+| Dictionnaire et synonymes (Wiktionnaire, Wiktionary, Datamuse) | `/def maison`, `/syn rapide`, `/def en house` | fait |
 | Collage automatique dans l'application précédente | | fait ; à vérifier (dialogue RemoteDesktop) |
 | Transformations de la sélection | `maj`, `titre`, `typo`, `mots` | fait |
 | Traduction (DeepL ou LibreTranslate) | `tr en bonjour` | fait ; à vérifier avec une clé |
@@ -119,7 +126,10 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Sauvegarde complète et import sans suppression | fait |
 | Interface en français et en anglais | fait |
 | `./install.sh` : installation, mise à jour, réinstallation et désinstallation en une commande, dépendances comprises | fait ; à vérifier sur une machine neuve |
-| Paquet .deb avec outils recommandés installés d'office (playerctl, Tesseract…) ; AppImage avec `scripts/package.sh` | fait |
+| Paquet .deb avec outils recommandés installés d'office (playerctl, FFmpeg, ImageMagick, Tesseract, ripgrep…) et l'extension GNOME ; AppImage avec `scripts/package.sh` | fait |
+| Versions GitHub avec le `.deb` attaché à chaque étiquette `v*` ; `./install.sh --release` l'installe sans compiler | fait ; jamais lancé (aucune étiquette poussée) |
+| Tests automatiques sur GitHub à chaque push (`ci.yml`) | fait ; jamais lancé sur GitHub |
+| README en anglais, site en anglais (`site/`, GitHub Pages) | fait ; Pages à activer |
 | Lecture du texte sélectionné à l'ouverture, désactivable | fait |
 
 ## Accessibilité et confort
@@ -144,10 +154,22 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Sujet | Détail |
 | --- | --- |
 | Essais sur le vrai bureau | Raccourci et service depuis l'assistant, vouivre et ornements dans la vraie fenêtre, désinstallation réelle, `/spotify`, `/media`, `/luminosite`, collage automatique, capture, OCR, pipette, jetons GitHub, Vercel et traduction |
-| Extension GNOME Shell de Landry | Historique du presse-papiers (`/presse-papiers`) et sélecteur de fenêtres (`/fenetres`), impossibles sans extension sous Wayland ; proposée, pas encore retenue |
 | Jeux Steam | Lire les `appmanifest_*.acf` de toutes les bibliothèques, lancer par `steam://rungameid/<id>` (idée reprise de Weft) |
 | Applications de Weft | Trouver les programmes Windows installés par Weft, sans refaire son moteur |
 | Figma | Section 03 « Barre vivante » à aligner sur les 9 réactions de la vouivre |
 | Guide de développement | Ajouter les modules `slash` et `session`, l'assistant et le bloc `style` des presets |
-| Livraison | Fusionner `dev` dans `main` une fois la 0.3.0 essayée sur le bureau |
-| Pistes à plus long terme | Extensions en TypeScript, intégration IA |
+| Extension GNOME sur le vrai bureau | Testée dans un GNOME Shell imbriqué ; à vérifier après une reconnexion |
+| Première version publiée | Pousser l'étiquette `v0.4.0` pour lancer la construction du paquet sur GitHub |
+| Livraison | Fusionner `dev` dans `main` une fois la 0.4.0 essayée sur le bureau |
+| Pistes à plus long terme | Intégration IA |
+
+## Plus tard
+
+Idées retenues pour une prochaine étape.
+
+| Idée | Détail |
+| --- | --- |
+| Vouivre qui grandit | Elle évolue avec l'usage (nouvelles écailles, couleur de flamme), sans aucun effet sur le fonctionnement |
+| Éditeur de thèmes plus visuel | Une pipette sur un fond d'écran pour générer un preset à partir de ses couleurs |
+| Partage de presets | Export et import par lien ou QR code entre amis |
+| Extensions | Un dossier où chacun dépose une commande « / » en JavaScript ou en script, avec une petite documentation, pour rendre Landry adaptable par d'autres |

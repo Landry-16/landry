@@ -4,7 +4,7 @@ Landry est un compagnon du quotidien pour Ubuntu GNOME. Un raccourci clavier ouv
 
 Cible : Ubuntu 24.04, GNOME 46, session Wayland. Pile : Tauri 2 (Rust) et Svelte 5.
 
-La liste complète des fonctionnalités, avec leur état et ce qui reste à faire, est dans [FEATURES.md](FEATURES.md).
+La liste complète des fonctionnalités, avec leur état et ce qui reste à faire, est dans [FEATURES.md](FEATURES.md). [English version](README.en.md).
 
 ## Installation
 
@@ -14,13 +14,15 @@ Une seule commande installe, met à jour ou réinstalle Landry, avec tout ce don
 ./install.sh
 ```
 
+Depuis un clone, il construit tes sources. `./install.sh --release` installe plutôt le paquet de la dernière version GitHub, sans rien compiler ; chaque étiquette `v*` poussée sur GitHub construit ce paquet et l'attache à une version (`.github/workflows/release.yml`).
+
 Sans clone du dépôt (seulement si le dépôt GitHub est public) :
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Landry-16/landry/dev/install.sh | bash
 ```
 
-Le script installe ce qui manque (paquets système, Rust, Node 22 dans `~/.local/share/landry/node` si celui du système est trop ancien), construit le paquet, l'installe avec les outils recommandés (playerctl, Tesseract…), relance Landry et termine par `landry doctor`. Il ne demande le mot de passe que pour apt. Relance-le après chaque `git pull` pour mettre à jour. `./install.sh --uninstall` retire Landry et garde tes réglages et tes données.
+Le script installe ce qui manque (paquets système ; Rust et Node 22 dans `~/.local/share/landry/node` quand il doit compiler), installe le paquet avec les outils recommandés (playerctl, FFmpeg, ImageMagick, Tesseract, ripgrep…), active l'extension GNOME, relance Landry et termine par `landry doctor`. Il ne demande le mot de passe que pour apt. Relance-le après chaque `git pull` pour mettre à jour. `./install.sh --uninstall` retire Landry et garde tes réglages et tes données.
 
 Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script continue quand même. Pour faire disparaître l'erreur, retire le dépôt concerné, par exemple `sudo add-apt-repository --remove ppa:alexlarsson/flatpak`.
 
@@ -28,12 +30,13 @@ Pour fabriquer des paquets à distribuer (`.deb` et AppImage dans `dist-packages
 
 ## Premier lancement
 
-Lance `landry` (ou Landry depuis la liste des applications). Un assistant s'ouvre, une seule fois, avec quatre réglages facultatifs :
+Lance `landry` (ou Landry depuis la liste des applications). Un assistant s'ouvre, une seule fois, avec cinq réglages facultatifs :
 
 1. le raccourci clavier : appuie sur la combinaison voulue, ou garde Ctrl+Alt+Espace ;
 2. le démarrage avec la session ;
 3. l'apparence, en un clic sur un preset ;
-4. les outils facultatifs qui manquent, avec la commande à copier.
+4. l'extension GNOME pour les fenêtres ouvertes et l'historique du presse-papiers ;
+5. les outils facultatifs qui manquent, avec la commande à copier.
 
 On le rouvre avec `/bienvenue` dans la barre ou `landry setup`.
 
@@ -70,8 +73,8 @@ Les applications installées ou supprimées apparaissent et disparaissent de la 
 
 | Tape | Pour |
 | --- | --- |
-| `vsc`, `paramètres` | applications (initiales, sans accents, fautes tolérées) |
-| `facture`, `pdf: facture`, `img: <7j`, `dir:` | fichiers, avec filtres de type et de date |
+| `vsc`, `paramètres` | applications (initiales, sans accents, fautes tolérées) ; une application déjà ouverte bascule vers sa fenêtre |
+| `facture`, `pdf: facture`, `img: <7j`, `dir:` | fichiers, avec filtres de type et de date ; Ctrl+K les convertit (images, PDF, documents, vidéo, audio) |
 | `nacre` | projets git : éditeur, terminal, git pull, PR, scripts npm |
 | `port 5173`, `docker`, `ssh prod` | ports occupés, conteneurs, hôtes SSH |
 | `pr`, `issues`, `vercel` | GitHub et Vercel (jetons dans le trousseau) |
@@ -101,8 +104,17 @@ Tape `/` pour voir toutes les commandes ; Entrée ou Tab complète celle qui est
 | `/reglages son` | ouvre un panneau des paramètres GNOME |
 | `/tuer firefox` | processus correspondants, les plus gourmands d'abord, arrêt en deux temps |
 | `/meteo Lyon` | météo du jour et des deux suivants (wttr.in, seulement quand tu la demandes) |
+| `/fenetres` | passer à une fenêtre ouverte (extension GNOME) |
+| `/presse-papiers`, `/clip` | historique du presse-papiers : les 100 derniers textes, en mémoire seulement, mots de passe ignorés |
+| `/emoji coeur rouge`, `/car tiret` | émojis et caractères spéciaux, cherchés en français ou en anglais ; Entrée colle |
+| `/def maison`, `/syn rapide` | définitions et synonymes (Wiktionnaire, Datamuse) ; `/def en house` pour l'anglais |
+| `/contenu devis 2024` | fichiers dont le contenu contient un texte (ripgrep, ou grep) |
 | `/aide` | l'aide de la barre |
 | `/bienvenue` | l'assistant de premier lancement |
+
+## Fenêtres et presse-papiers
+
+Sous Wayland, seul GNOME Shell peut lister les fenêtres ou surveiller le presse-papiers. Landry installe une petite extension (`landry@landry-16.github.io`) qui le fait sur D-Bus et ne répond qu'à Landry. Elle démarre à la connexion suivante. Entrée sur une application déjà ouverte bascule vers sa fenêtre (désactivable dans Général ; Ctrl+K, « Nouvelle fenêtre », en ouvre une autre). L'historique du presse-papiers n'est jamais écrit sur le disque, ignore ce que les gestionnaires de mots de passe marquent comme secret, et se met en pause ou se vide depuis `/presse-papiers`.
 
 ## Presets
 
@@ -140,7 +152,7 @@ Tout fichier de `~/.config/landry/scripts` (shell, Python, Node, ou exécutable)
 
 - Réglages et presets : `~/.config/landry/`. Base (historique, extraits, notes, tâches, suivi) : `~/.local/share/landry/landry.db`.
 - Jetons GitHub, Vercel et traduction : trousseau du système, jamais dans un fichier ni dans une sauvegarde.
-- Aucune télémétrie. Réseau utilisé seulement pour les taux BCE, GitHub, Vercel, la traduction et `/meteo`, quand tu les demandes.
+- Aucune télémétrie. Réseau utilisé seulement pour les taux BCE, GitHub, Vercel, la traduction, `/meteo`, `/def` et `/syn`, quand tu les demandes.
 - Sauvegarde complète et import (sans suppression) : Réglages, onglet Général.
 
 ## Développement

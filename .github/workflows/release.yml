@@ -1,0 +1,45 @@
+name: Release
+
+# Push a tag such as v0.4.0: tests run, the .deb is built and attached to a GitHub release.
+# ./install.sh --release (and the curl install) then installs it without building anything.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  deb:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Tests
+        run: |
+          npm test
+          (cd src-tauri && cargo test)
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Landry ${{ github.ref_name }}
+          releaseBody: |
+            Install: download the .deb below, then `sudo apt install ./Landry_*_amd64.deb`, or run `./install.sh --release`.
+            Installation : télécharge le .deb ci-dessous, puis `sudo apt install ./Landry_*_amd64.deb`, ou lance `./install.sh --release`.
+          releaseDraft: false
+          prerelease: false
+          args: --bundles deb

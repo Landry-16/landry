@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Landry</title>
+<meta name="description" content="Landry is a keyboard companion for Ubuntu GNOME: launch, switch, find, calculate, paste, convert, with a small pixel vouivre living in the bar.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: one dark page, the live bar as the hero, then what it does, in the order you meet it. */
+  :root {
+    color-scheme: dark;
+    --ink: #0d0405;
+    --panel: #170709;
+    --bar: #1a0609;
+    --line: #3b1c16;
+    --text: #f3e6d8;
+    --dim: #b59a8c;
+    --gold: #c9a36a;
+    --crimson: #c8102e;
+    --sel: #3d0f16;
+    --display: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+    --body: 'Figtree', 'Segoe UI', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--ink); }
+  body { margin: 0; background: var(--ink); color: var(--text); font: 17px/1.6 var(--body); }
+  a { color: var(--gold); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 22px; text-decoration: none; color: var(--text); }
+  .brand svg { width: 34px; height: 30px; }
+  nav.links { display: flex; gap: 18px; flex-wrap: wrap; font-size: 15px; }
+  nav.links a { color: var(--dim); text-decoration: none; }
+  nav.links a:hover { color: var(--text); }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 48px; align-items: center; padding-block: 48px 72px; }
+  @media (max-width: 860px) { .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-block: 24px 48px; } }
+  .eyebrow { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin: 0 0 12px; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(40px, 6vw, 66px); line-height: 1.04; margin: 0 0 20px; text-wrap: balance; }
+  h1 em { color: var(--gold); }
+  .lede { color: var(--dim); font-size: 19px; max-width: 34em; margin: 0 0 28px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .button { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px; font-weight: 600; text-decoration: none; border: 1px solid var(--gold); }
+  .button.primary { background: var(--gold); color: var(--ink); }
+  .button.ghost { color: var(--text); }
+
+  /* The live bar */
+  .stage { position: relative; padding: 46px 22px 34px; }
+  .crest { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); width: 200px; height: 58px; }
+  .rose { position: absolute; width: 44px; height: 44px; top: 30px; }
+  .rose.l { left: 4px; } .rose.r { right: 4px; }
+  .bar { position: relative; background: var(--bar); border: 1px solid #5a3422; border-radius: 10px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.6); overflow: hidden; font-family: var(--display); }
+  .field { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #5a3422; }
+  .field svg { width: 42px; height: 38px; flex: none; }
+  .query { flex: 1; min-width: 0; font-size: 20px; white-space: nowrap; overflow: hidden; }
+  .query .ph { color: var(--dim); }
+  .caret { display: inline-block; width: 2px; height: 1.1em; background: var(--gold); vertical-align: -0.15em; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .chip { font: 12px var(--body); color: var(--dim); border: 1px solid #5a3422; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+  .results { list-style: none; margin: 0; padding: 8px; min-height: 196px; }
+  .results li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 6px; position: relative; }
+  .results li.sel { background: var(--sel); }
+  .results li.sel::before { content: ''; position: absolute; left: 0; top: 25%; bottom: 25%; width: 3px; border-radius: 3px; background: var(--gold); }
+  .ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1px solid rgb(201 163 106 / 0.6); color: var(--gold); font-style: italic; flex: none; font-size: 15px; }
+  .tx { display: grid; flex: 1; min-width: 0; }
+  .tx b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx small { font: 13px var(--body); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mod { font-size: 12px; color: var(--dim); font-style: italic; white-space: nowrap; }
+  .keys { display: flex; gap: 14px; flex-wrap: wrap; padding: 6px 16px; border-top: 1px solid #5a3422; font: 12px var(--body); color: var(--dim); }
+  kbd { font: 11px var(--mono); border: 1px solid #5a3422; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text); }
+
+  section { padding-block: 56px; border-top: 1px solid var(--line); }
+  h2 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 4vw, 42px); margin: 0 0 10px; text-wrap: balance; }
+  .intro { color: var(--dim); max-width: 40em; margin: 0 0 32px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; min-width: 0; }
+  .card h3 { font-family: var(--display); font-weight: 400; font-size: 22px; margin: 0 0 6px; }
+  .card p { margin: 0 0 12px; color: var(--dim); font-size: 15px; }
+  .card code, td code, .inline-code { font: 13px var(--mono); color: var(--gold); background: rgb(201 163 106 / 0.1); padding: 1px 6px; border-radius: 5px; }
+  .card ul { margin: 0; padding-left: 18px; color: var(--dim); font-size: 15px; display: grid; gap: 4px; }
+  .table { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); font-weight: 500; }
+  td:first-child { white-space: nowrap; }
+
+  .moods { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+  .mood { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 10px 10px; text-align: center; font-size: 13px; color: var(--dim); }
+  .mood svg { width: 72px; height: 64px; display: block; margin: 0 auto 6px; }
+  .swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .swatch { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; }
+  .swatch i { width: 26px; height: 26px; border-radius: 50%; display: block; border: 2px solid var(--a); background: var(--b); }
+
+  pre { margin: 0; background: #0a0304; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto; font: 14px/1.6 var(--mono); color: var(--text); }
+  .install { display: grid; gap: 14px; max-width: 760px; }
+  /* Grid items default to their content width: the long curl line would widen the page. */
+  .install > * { min-width: 0; }
+  .inline-code { overflow-wrap: anywhere; }
+  @media (max-width: 600px) {
+    td:first-child { white-space: normal; }
+    .copyrow { flex-direction: column; }
+    .copy { padding: 10px; }
+  }
+  .copyrow { display: flex; gap: 10px; align-items: stretch; }
+  .copyrow pre { flex: 1; min-width: 0; }
+  .copy { font: 600 14px var(--body); background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 12px; padding: 0 16px; cursor: pointer; }
+  footer { border-top: 1px solid var(--line); padding-block: 28px 48px; color: var(--dim); font-size: 14px; display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+  .pix { shape-rendering: crispEdges; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .caret { animation: none; }
+    .vouivre-live * { animation: none !important; }
+  }
+  .vouivre-live .wing { transform-box: view-box; transform-origin: 8px 11px; animation: flap 1.5s ease-in-out infinite; }
+  .vouivre-live { animation: breathe 3s ease-in-out infinite; }
+  @keyframes flap { 50% { transform: rotate(-12deg); } }
+  @keyframes breathe { 50% { transform: translateY(-1px); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#"><svg viewBox="0 0 22 20" class="pix" data-mood="idle" aria-hidden="true"></svg>Landry</a>
+    <nav class="links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#commands">Commands</a>
+      <a href="#companion">Companion</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/Landry-16/landry">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Ubuntu GNOME · Wayland · open source</p>
+        <h1>A keyboard companion that <em>lives</em> in your bar</h1>
+        <p class="lede">One shortcut, a few letters: launch an app or jump back to its window, find a file or a line inside it, calculate, convert, paste what you copied an hour ago, control the music. A small pixel vouivre watches over it all.</p>
+        <div class="cta">
+          <a class="button primary" href="#install">Install</a>
+          <a class="button ghost" href="https://github.com/Landry-16/landry">Source code</a>
+        </div>
+      </div>
+
+      <div class="stage" aria-label="Demonstration of the Landry bar">
+        <svg class="crest" viewBox="0 0 220 64" aria-hidden="true">
+          <defs><radialGradient id="medal"><stop offset="0" stop-color="#fff4e6"/><stop offset="0.45" stop-color="#c8102e"/><stop offset="1" stop-color="#2a0509"/></radialGradient></defs>
+          <path d="M 0 30 C 10 30 18 22 18 12 C 18 4 10 0 4 4 C 0 8 4 14 9 11 M 18 12 C 30 26 52 30 70 26 C 80 24 86 18 84 10 C 82 4 74 4 74 10" fill="none" stroke="#c9a36a" stroke-width="2" stroke-linecap="round" transform="translate(16 14)"/>
+          <path d="M 0 30 C 10 30 18 22 18 12 C 18 4 10 0 4 4 C 0 8 4 14 9 11 M 18 12 C 30 26 52 30 70 26 C 80 24 86 18 84 10 C 82 4 74 4 74 10" fill="none" stroke="#c9a36a" stroke-width="2" stroke-linecap="round" transform="translate(204 14) scale(-1 1)"/>
+          <path d="M 110 2 C 116 10 116 18 110 26 C 104 18 104 10 110 2 Z" fill="#c9a36a"/>
+          <circle cx="110" cy="42" r="15" fill="url(#medal)" stroke="#c9a36a" stroke-width="2.5"/>
+        </svg>
+        <svg class="rose l" viewBox="-24 -24 48 48" aria-hidden="true"><g fill="#9e0b22"><ellipse cx="0" cy="-10" rx="9" ry="8"/><ellipse cx="9" cy="-3" rx="9" ry="8"/><ellipse cx="6" cy="8" rx="9" ry="8"/><ellipse cx="-6" cy="8" rx="9" ry="8"/><ellipse cx="-9" cy="-3" rx="9" ry="8"/></g><circle r="9" fill="#c8102e"/><path d="M 0 0 C 4 -4 8 0 4 4 C 0 8 -8 4 -6 -2 C -4 -9 6 -10 9 -3" fill="none" stroke="#5a0611" stroke-width="1.4"/></svg>
+        <svg class="rose r" viewBox="-24 -24 48 48" aria-hidden="true"><g fill="#9e0b22"><ellipse cx="0" cy="-10" rx="9" ry="8"/><ellipse cx="9" cy="-3" rx="9" ry="8"/><ellipse cx="6" cy="8" rx="9" ry="8"/><ellipse cx="-6" cy="8" rx="9" ry="8"/><ellipse cx="-9" cy="-3" rx="9" ry="8"/></g><circle r="9" fill="#c8102e"/><path d="M 0 0 C 4 -4 8 0 4 4 C 0 8 -8 4 -6 -2 C -4 -9 6 -10 9 -3" fill="none" stroke="#5a0611" stroke-width="1.4"/></svg>
+        <div class="bar">
+          <div class="field">
+            <svg viewBox="0 0 22 20" class="pix vouivre-live" id="live-vouivre" aria-hidden="true"></svg>
+            <div class="query" id="query" aria-live="polite"><span class="ph">What do you want to do?</span><span class="caret"></span></div>
+            <span class="chip">Rose noire</span>
+          </div>
+          <ul class="results" id="results"></ul>
+          <div class="keys" aria-hidden="true"><span><kbd>↵</kbd> open</span><span><kbd>Ctrl K</kbd> actions</span><span><kbd>/</kbd> commands</span><span><kbd>F1</kbd> help</span></div>
+        </div>
+      </div>
+    </div>
+
+    <section id="features">
+      <h2>Everything you reach for, one shortcut away</h2>
+      <p class="intro">Landry indexes what is on your computer and answers as you type. Results are ranked by what you actually use, at the time of day you use it.</p>
+      <div class="grid">
+        <div class="card"><h3>Launch and switch</h3><p>Apps from .desktop, Flatpak and Snap, found by initials and with typos. If the app is already open, Enter jumps to its window.</p><ul><li><code>vsc</code> Visual Studio Code</li><li><code>/fenetres</code> every open window</li></ul></div>
+        <div class="card"><h3>Find files, and inside them</h3><p>Names, recent files, bookmarks, type and date filters, and the content of your documents and projects.</p><ul><li><code>pdf: invoice &lt;7j</code></li><li><code>/contenu quote 2024</code></li></ul></div>
+        <div class="card"><h3>Clipboard history</h3><p>The last 100 texts you copied, searchable, pasted back where you were. Kept in memory only; password managers are ignored.</p><ul><li><code>/presse-papiers meeting</code></li></ul></div>
+        <div class="card"><h3>Convert files</h3><p>Ctrl+K on a file: images to PNG, JPG or WebP, PDF pages to images, documents to PDF, video to MP4, WebM or GIF, audio to MP3.</p></div>
+        <div class="card"><h3>Words and characters</h3><p>Definitions and synonyms from Wiktionary, emojis and special characters searched in French or English, pasted in one keystroke.</p><ul><li><code>/def house</code> · <code>/syn fast</code></li><li><code>/emoji heart</code> · <code>/car dash</code></li></ul></div>
+        <div class="card"><h3>Calculate and plan</h3><p>Maths, units, currencies, time zones, working days, VAT; tasks with reminders, timers, Pomodoro, time tracking, Markdown notes.</p><ul><li><code>15h Paris en New York</code></li><li><code>minuteur 10 min pasta</code></li></ul></div>
+        <div class="card"><h3>Developer tools</h3><p>Git projects with branch and state, busy ports, SSH hosts, Docker, GitHub and Vercel, and a toolbox: UUID, base64, JWT, regex, colours.</p></div>
+        <div class="card"><h3>Your desktop</h3><p>Music, volume, brightness, dark theme, do not disturb, Wi-Fi, lock, GNOME settings panels, processes, weather.</p><ul><li><code>/spotify daft punk</code></li><li><code>/volume 40</code></li></ul></div>
+      </div>
+    </section>
+
+    <section id="commands">
+      <h2>Slash commands, and aliases for whole commands</h2>
+      <p class="intro">Type <span class="inline-code">/</span> to see every command. Give any command a short name: <span class="inline-code">pp = /spotify play</span> pauses the music in one word, and <span class="inline-code">sp = /spotify</span> then <span class="inline-code">sp daft punk</span> searches Daft Punk.</p>
+      <div class="table">
+        <table>
+          <thead><tr><th>Command</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><code>/presse-papiers</code></td><td>Clipboard history, newest first; pause or clear it</td></tr>
+            <tr><td><code>/fenetres</code></td><td>Switch to an open window, most recent first</td></tr>
+            <tr><td><code>/emoji</code>, <code>/car</code></td><td>Emojis and special characters</td></tr>
+            <tr><td><code>/def</code>, <code>/syn</code></td><td>Definitions and synonyms, French or English</td></tr>
+            <tr><td><code>/contenu</code></td><td>Files that contain a text</td></tr>
+            <tr><td><code>/spotify</code>, <code>/media</code></td><td>Search Spotify, current track, play, pause, next</td></tr>
+            <tr><td><code>/volume</code>, <code>/luminosite</code>, <code>/sombre</code>, <code>/dnd</code>, <code>/wifi</code></td><td>Sound, screen, theme, notifications, network</td></tr>
+            <tr><td><code>/tuer</code>, <code>/reglages</code>, <code>/meteo</code></td><td>Processes, GNOME settings panels, weather</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="companion">
+      <h2>Meet the vouivre</h2>
+      <p class="intro">A small pixel winged serpent from French folklore lives in the bar and reacts to what happens. Switch it off, or set the animation speed to 0 and it only changes pose; reduced motion is always respected.</p>
+      <div class="moods" id="moods"></div>
+      <div class="swatches" aria-label="Shipped presets">
+        <span class="swatch" style="--a:#c9a36a;--b:#c8102e"><i></i>Rose noire</span>
+        <span class="swatch" style="--a:#ffb84c;--b:#7c6cf0"><i></i>Default</span>
+        <span class="swatch" style="--a:#e8c58c;--b:#e9a6b8"><i></i>Silk</span>
+        <span class="swatch" style="--a:#f0b429;--b:#d8402b"><i></i>Fresco</span>
+        <span class="swatch" style="--a:#d97757;--b:#e8b04a"><i></i>Pixel</span>
+        <span class="swatch" style="--a:#3fb950;--b:#58a6ff"><i></i>Developer</span>
+      </div>
+    </section>
+
+    <section id="install">
+      <h2>Install in one command</h2>
+      <p class="intro">For Ubuntu 24.04 and GNOME 46 on Wayland. The script installs what is missing, installs the package with its recommended tools, enables the GNOME extension and checks everything with <span class="inline-code">landry doctor</span>. It only asks for your password for apt.</p>
+      <div class="install">
+        <div class="copyrow"><pre id="cmd">curl -fsSL https://raw.githubusercontent.com/Landry-16/landry/dev/install.sh | bash</pre><button class="copy" data-copy="cmd">Copy</button></div>
+        <p class="intro" style="margin:0">From a clone, <span class="inline-code">./install.sh</span> builds your sources, <span class="inline-code">./install.sh --release</span> takes the latest released package, and <span class="inline-code">./install.sh --uninstall</span> removes Landry but keeps your settings and data.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Private by default</h2>
+      <div class="grid">
+        <div class="card"><h3>Local</h3><p>Settings in ~/.config/landry, data in ~/.local/share/landry. No telemetry.</p></div>
+        <div class="card"><h3>Network only when asked</h3><p>Currency rates, GitHub, Vercel, translation, weather and dictionary are fetched only when you type them.</p></div>
+        <div class="card"><h3>Secrets stay secret</h3><p>Tokens live in the system keyring, never in a file or a backup. The clipboard history never touches the disk.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Landry · a companion for Ubuntu GNOME · Tauri and Svelte</span>
+    <span><a href="https://github.com/Landry-16/landry">GitHub</a> · <a href="https://github.com/Landry-16/landry/blob/dev/README.en.md">README</a></span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // The vouivre, same sprite as the app (src/Companion.svelte).
+  const SPRITE = ['...........h..h..', '...........hh.h..', '.w.w......HHHHH..', '.wWww....HHHHHHHH', 'wWwWw....HHHHHHHf', '.wwWwww.cHHHbbb..', '..wwwwwcBBb......', '...ww.cBBb.......', '.....cBBb........', '..cBBBBb.........', '.cBBbbbb.........', 'cBb.........s....', 'cBbb.......sss...', '.cBBBbbbbbBBs....', '...cBBBBBBBs.....'];
+  const COLORS = { H: '#c9a36a', B: '#c9a36a', c: '#8e6f43', b: '#e6cfa8', h: '#f3e6d8', w: '#c8102e', W: '#7a0a18', s: '#c8102e', f: '#c8102e' };
+  const MOODS = {
+    idle: { eye: [[3, 12]] },
+    listen: { eye: [[3, 13]], signs: [[0, 17], [-1, 18], [2, 18]] },
+    lost: { eye: [[3, 12]], signs: [[-3, 6], [-3, 7], [-2, 8], [-1, 7], [1, 7]] },
+    joy: { eye: [[3, 11], [2, 12], [3, 13]], flame: [[4, 17], [3, 18], [5, 18], [4, 18], [4, 19]], signs: [[-1, 4], [-2, 9], [0, 0]] },
+    error: { eye: [[3, 12]], red: true, signs: [[0, 17], [-1, 18], [-2, 17]] },
+    sleep: { eye: [[3, 11], [3, 12]], signs: [[-1, 17], [-1, 18], [0, 17], [1, 17], [1, 18], [-3, 19], [-2, 19]] },
+  };
+  const rect = (x, y, fill, cls = '') => `<rect x="${x + 1}" y="${y + 4}" width="1.02" height="1.02" fill="${fill}" ${cls}/>`;
+  function draw(svg, mood) {
+    const m = MOODS[mood] || MOODS.idle;
+    let wing = '', rest = '';
+    SPRITE.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (!COLORS[ch]) return;
+      let fill = COLORS[ch];
+      if (m.red && 'HBc'.includes(ch)) fill = ch === 'c' ? '#a3303a' : '#e5484d';
+      if (m.red && 'wW'.includes(ch)) fill = '#5e1016';
+      if (ch === 'f' && !m.flame && mood !== 'idle' && mood !== 'listen') return;
+      const r = rect(x, y, fill);
+      if ('wW'.includes(ch)) wing += r; else rest += r;
+    }));
+    const eyes = m.eye.map(([y, x]) => rect(x, y, '#1a0609')).join('');
+    const flame = (m.flame || []).map(([y, x], i) => rect(x, y, i === 3 ? '#fff1c2' : '#c8102e')).join('');
+    const signs = (m.signs || []).map(([y, x]) => rect(x, y, mood === 'error' ? '#8b8584' : '#c9a36a')).join('');
+    svg.innerHTML = `<ellipse cx="9" cy="16.5" rx="8" ry="3" fill="#c9a36a" opacity="0.22"/><g class="wing">${wing}</g>${rest}${eyes}${flame}${signs}`;
+  }
+  document.querySelectorAll('svg[data-mood]').forEach((s) => draw(s, s.dataset.mood));
+  const live = document.getElementById('live-vouivre');
+  draw(live, 'idle');
+
+  const moods = document.getElementById('moods');
+  [['idle', 'Idle'], ['listen', 'Listening'], ['lost', 'Lost'], ['joy', 'Joy'], ['error', 'Error'], ['sleep', 'Asleep']].forEach(([m, label]) => {
+    const d = document.createElement('div');
+    d.className = 'mood';
+    d.innerHTML = `<svg viewBox="0 0 22 20" class="pix" aria-hidden="true"></svg>${label}`;
+    draw(d.querySelector('svg'), m);
+    moods.appendChild(d);
+  });
+
+  // The bar types a few real commands.
+  const SCENES = [
+    { q: 'firef', mood: 'listen', rows: [['F', 'Firefox', 'GitHub - Landry-16/landry · open window', 'Window'], ['F', 'Firefox', 'Web browser', 'Application'], ['F', 'firefox-notes.md', '~/Documents', 'File']] },
+    { q: '/presse-papiers meet', mood: 'listen', rows: [['P', 'Meeting moved to 3 pm, room B', '2 min ago · 30 characters', 'Clipboard'], ['P', 'https://meet.example/landry', '1 h ago · 27 characters', 'Clipboard']] },
+    { q: '/emoji heart', mood: 'listen', rows: [['❤', '❤️  red heart', 'heart, love', 'Character'], ['\u{1F49B}', '\u{1F49B}  yellow heart', 'heart, yellow', 'Character'], ['\u{1F498}', '\u{1F498}  heart with arrow', 'cupid, love', 'Character']] },
+    { q: '12*7%', mood: 'joy', rows: [['=', '0.84', '12*7% · Enter copies', 'Calculation']] },
+    { q: '/def vouivre', mood: 'listen', rows: [['D', 'Winged serpent of French folklore, guardian of a gem.', 'vouivre · noun', 'Dictionary']] },
+    { q: 'zzqx', mood: 'lost', rows: [] },
+  ];
+  const query = document.getElementById('query'), results = document.getElementById('results');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  function show(scene, typed) {
+    query.innerHTML = typed ? `${esc(typed)}<span class="caret"></span>` : '<span class="ph">What do you want to do?</span><span class="caret"></span>';
+    if (typed !== scene.q) return;
+    results.innerHTML = scene.rows.length
+      ? scene.rows.map(([ic, t, s, m], i) => `<li class="${i ? '' : 'sel'}"><span class="ic">${ic}</span><span class="tx"><b>${esc(t)}</b><small>${esc(s)}</small></span><span class="mod">${m}</span></li>`).join('')
+      : `<li><span class="tx"><small>No results for « ${scene.q} »</small></span></li>`;
+    draw(live, scene.mood);
+  }
+  if (still) { show(SCENES[0], SCENES[0].q); return; }
+  let s = 0;
+  async function loop() {
+    for (;;) {
+      const scene = SCENES[s++ % SCENES.length];
+      results.innerHTML = '';
+      draw(live, 'idle');
+      for (let i = 1; i <= scene.q.length; i++) { show(scene, scene.q.slice(0, i)); draw(live, 'listen'); await new Promise((r) => setTimeout(r, 70)); }
+      show(scene, scene.q);
+      await new Promise((r) => setTimeout(r, 2600));
+    }
+  }
+  loop();
+
+  document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', async () => {
+    const text = document.getElementById(b.dataset.copy).textContent;
+    try { await navigator.clipboard.writeText(text); b.textContent = 'Copied'; } catch { getSelection().selectAllChildren(document.getElementById(b.dataset.copy)); }
+    setTimeout(() => (b.textContent = 'Copy'), 1500);
+  }));
+})();
+</script>
+</body>
+</html>
