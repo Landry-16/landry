@@ -3,6 +3,7 @@ mod backup;
 mod config;
 mod doctor;
 mod engine;
+mod i18n;
 mod ipc;
 mod modules;
 mod organizer;

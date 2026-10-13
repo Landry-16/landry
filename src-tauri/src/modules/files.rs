@@ -3,6 +3,7 @@
 use super::Preview;
 use crate::config::Settings;
 use crate::engine::Outcome;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use crate::util;
 use std::path::{Path, PathBuf};
@@ -141,7 +142,7 @@ pub fn item(path: &Path, is_dir: bool, mtime: i64, tag: &str) -> Item {
     Item {
         id: format!("{tag}:{}", path.display()),
         module: "files".into(),
-        subtitle: if tag == "file" { parent } else { format!("{} · {parent}", if tag == "recent" { "Récent" } else { "Favori" }) },
+        subtitle: if tag == "file" { parent } else { format!("{} · {parent}", if tag == "recent" { t("Récent") } else { t("Favori") }) },
         keywords: match tag {
             "recent" => vec!["recent".into(), "récent".into()],
             "bookmark" => vec!["favori".into(), "signet".into()],
@@ -280,7 +281,7 @@ pub fn watch(settings: Settings, mut on_change: impl FnMut(Vec<Item>) + Send + '
 }
 
 fn reveal(path: &str) -> Result<(), String> {
-    let uri = url::Url::from_file_path(path).map_err(|_| "chemin invalide".to_string())?;
+    let uri = url::Url::from_file_path(path).map_err(|_| t("chemin invalide"))?;
     util::output(
         "gdbus",
         &[
@@ -297,11 +298,11 @@ fn reveal(path: &str) -> Result<(), String> {
 fn rename(path: &Path, new_name: &str) -> Result<PathBuf, String> {
     let n = new_name.trim();
     if n.is_empty() || n.contains('/') || n == "." || n == ".." {
-        return Err("nom invalide".into());
+        return Err(t("nom invalide"));
     }
     let dest = path.with_file_name(n);
     if dest.exists() {
-        return Err(format!("« {n} » existe déjà"));
+        return Err(tf("« {n} » existe déjà", &[("n", &n)]));
     }
     std::fs::rename(path, &dest).map_err(|e| e.to_string())?;
     Ok(dest)
@@ -310,20 +311,20 @@ fn rename(path: &Path, new_name: &str) -> Result<PathBuf, String> {
 fn move_to(path: &Path, dir: &str) -> Result<PathBuf, String> {
     let dir = crate::paths::expand(dir.trim());
     if !dir.is_dir() {
-        return Err(format!("{} n'est pas un dossier", dir.display()));
+        return Err(tf("{p} n'est pas un dossier", &[("p", &dir.display())]));
     }
-    let dest = dir.join(path.file_name().ok_or("chemin invalide")?);
+    let dest = dir.join(path.file_name().ok_or_else(|| t("chemin invalide"))?);
     if dest.exists() {
-        return Err(format!("{} existe déjà", pretty(&dest)));
+        return Err(tf("{p} existe déjà", &[("p", &pretty(&dest))]));
     }
     // rename fails across file systems: copy-then-delete is left to the file manager.
-    std::fs::rename(path, &dest).map_err(|e| format!("déplacement impossible : {e}"))?;
+    std::fs::rename(path, &dest).map_err(|e| tf("déplacement impossible : {e}", &[("e", &e)]))?;
     Ok(dest)
 }
 
 fn compress(path: &Path) -> Result<PathBuf, String> {
-    let parent = path.parent().ok_or("chemin invalide")?;
-    let name = path.file_name().ok_or("chemin invalide")?.to_string_lossy().into_owned();
+    let parent = path.parent().ok_or_else(|| t("chemin invalide"))?;
+    let name = path.file_name().ok_or_else(|| t("chemin invalide"))?.to_string_lossy().into_owned();
     let mut dest = parent.join(format!("{name}.zip"));
     let mut i = 2;
     while dest.exists() {
@@ -336,10 +337,10 @@ fn compress(path: &Path) -> Result<PathBuf, String> {
 }
 
 pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<Outcome, String> {
-    let (_, is_dir, path) = parts(item).ok_or("élément de fichier invalide")?;
+    let (_, is_dir, path) = parts(item).ok_or_else(|| t("élément de fichier invalide"))?;
     let p = Path::new(path);
     if !p.exists() {
-        return Err(format!("{} n'existe plus", pretty(p)));
+        return Err(tf("{p} n'existe plus", &[("p", &pretty(p))]));
     }
     Ok(match action {
         "open" => {
@@ -355,19 +356,19 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
             Outcome::Hide
         }
         "copy-path" => Outcome::Copy(path.to_string()),
-        "rename" => Outcome::Message(format!("Renommé en {}", pretty(&rename(p, arg)?))),
-        "move" => Outcome::Message(format!("Déplacé vers {}", pretty(&move_to(p, arg)?))),
-        "compress" => Outcome::Message(format!("Archive créée : {}", pretty(&compress(p)?))),
+        "rename" => Outcome::Message(tf("Renommé en {p}", &[("p", &pretty(&rename(p, arg)?))])),
+        "move" => Outcome::Message(tf("Déplacé vers {p}", &[("p", &pretty(&move_to(p, arg)?))])),
+        "compress" => Outcome::Message(tf("Archive créée : {p}", &[("p", &pretty(&compress(p)?))])),
         "trash" => {
             util::output("gio", &["trash", path], None)?;
-            Outcome::Message(format!("{} mis à la corbeille", pretty(p)))
+            Outcome::Message(tf("{p} mis à la corbeille", &[("p", &pretty(p))]))
         }
         other => {
             if let Some(app_id) = other.strip_prefix("open-with:") {
                 open_with(app_id, path)?;
                 return Ok(Outcome::Hide);
             }
-            return Err(format!("action inconnue : {other}"));
+            return Err(tf("action inconnue : {a}", &[("a", &other)]));
         }
     })
 }
@@ -381,14 +382,14 @@ pub fn extra_actions(item: &Item) -> Vec<Action> {
         .into_iter()
         .filter_map(|a| {
             let id = a.id()?;
-            Some(Action::new(&format!("open-with:{id}"), &format!("Ouvrir avec {}", a.display_name())))
+            Some(Action::new(&format!("open-with:{id}"), &tf("Ouvrir avec {app}", &[("app", &a.display_name())])))
         })
         .collect()
 }
 
 fn open_with(app_id: &str, path: &str) -> Result<(), String> {
     use gtk::gio::prelude::AppInfoExt;
-    let app = gtk::gio::DesktopAppInfo::new(app_id).ok_or_else(|| format!("application introuvable : {app_id}"))?;
+    let app = gtk::gio::DesktopAppInfo::new(app_id).ok_or_else(|| tf("application introuvable : {a}", &[("a", &app_id)]))?;
     let file = gtk::gio::File::for_path(path);
     app.launch(&[file], gtk::gio::AppLaunchContext::NONE).map_err(|e| e.to_string())
 }
@@ -416,7 +417,7 @@ pub fn preview(item: &Item) -> Preview {
         names.truncate(40);
         let mut text = names.join("\n");
         if total > 40 {
-            text.push_str(&format!("\n… et {} autres", total - 40));
+            text.push_str(&format!("\n{}", tf("… et {n} autres", &[("n", &(total - 40))])));
         }
         return Preview::Text { text };
     }
@@ -442,7 +443,7 @@ pub fn preview(item: &Item) -> Preview {
     let modified = chrono::DateTime::from_timestamp(mtime, 0)
         .map(|d| d.with_timezone(&chrono::Local).format("%d/%m/%Y %H:%M").to_string())
         .unwrap_or_default();
-    let mut rows = vec![("Taille".to_string(), human_size(meta.len())), ("Modifié".to_string(), modified)];
+    let mut rows = vec![(t("Taille"), human_size(meta.len())), (t("Modifié"), modified)];
     // Text files: show the beginning.
     if meta.len() <= 1024 * 1024 {
         if let Ok(bytes) = std::fs::read(p) {
@@ -454,7 +455,7 @@ pub fn preview(item: &Item) -> Preview {
             }
         }
     }
-    rows.push(("Chemin".into(), pretty(p)));
+    rows.push((t("Chemin"), pretty(p)));
     Preview::Props { rows }
 }
 

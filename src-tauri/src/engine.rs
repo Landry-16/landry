@@ -4,6 +4,7 @@ use crate::apps::App;
 use crate::config::{Preset, Settings, Store};
 use crate::modules::{self, files, Preview};
 use crate::search::{Action, Item, Ranker};
+use crate::i18n::{t, tf};
 use crate::usage;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -90,6 +91,7 @@ impl Engine {
     pub fn reload_config(&mut self) {
         let (settings, w1) = self.store.settings();
         let (preset, w2) = self.store.active();
+        crate::i18n::set_locale(&settings.locale);
         self.settings = settings;
         self.preset = preset;
         self.warning = w2.or(w1);
@@ -141,16 +143,16 @@ impl Engine {
             ..Default::default()
         };
         let mut out = vec![
-            cmd("settings", "Réglages Landry", "Presets, apparence, alias", &["settings", "preferences", "config"]),
-            cmd("reload", "Recharger la configuration", "Relit les presets et les réglages", &["reload"]),
-            cmd("quit", "Quitter Landry", "Arrête le processus résident", &["quit", "exit"]),
+            cmd("settings", &t("Réglages Landry"), &t("Presets, apparence, alias"), &["settings", "preferences", "config", "reglages"]),
+            cmd("reload", &t("Recharger la configuration"), &t("Relit les presets et les réglages"), &["reload"]),
+            cmd("quit", &t("Quitter Landry"), &t("Arrête le processus résident"), &["quit", "exit"]),
         ];
         for info in self.store.list().into_iter().filter(|i| i.error.is_none()) {
             let active = info.name == self.preset.name;
             out.push(cmd(
                 &format!("preset:{}", info.name),
-                &format!("Preset : {}", info.name),
-                if active { "Preset actif" } else { "Changer de preset" },
+                &tf("Preset : {name}", &[("name", &info.name)]),
+                &if active { t("Preset actif") } else { t("Changer de preset") },
                 &["preset", "theme", "apparence"],
             ));
         }
@@ -224,6 +226,7 @@ impl Engine {
         out.extend(ranked);
         out.truncate(limit);
         self.shown = out.iter().map(|i| (i.id.clone(), i.clone())).collect();
+        out.iter_mut().for_each(|i| localize_actions(&mut i.actions));
         out
     }
 
@@ -254,7 +257,7 @@ impl Engine {
                 "cmd:settings" => Outcome::Settings,
                 "cmd:reload" => {
                     self.reload_config();
-                    Outcome::Message("Configuration rechargée.".into())
+                    Outcome::Message(t("Configuration rechargée."))
                 }
                 "cmd:quit" => {
                     self.quit_requested = true;
@@ -282,7 +285,9 @@ impl Engine {
     }
 
     pub fn actions(&self, id: &str) -> Vec<Action> {
-        self.find(id).map(|i| modules::actions(&i)).unwrap_or_default()
+        let mut a = self.find(id).map(|i| modules::actions(&i)).unwrap_or_default();
+        localize_actions(&mut a);
+        a
     }
 
     pub fn preview(&self, id: &str) -> Preview {
@@ -291,7 +296,7 @@ impl Engine {
 
     /// Best match for a query, as `landry run <query>` does.
     pub fn run_query(&mut self, query: &str) -> Result<(String, Outcome), String> {
-        let first = self.search(query).into_iter().next().ok_or_else(|| format!("aucun résultat pour « {query} »"))?;
+        let first = self.search(query).into_iter().next().ok_or_else(|| tf("aucun résultat pour « {q} »", &[("q", &query)]))?;
         let outcome = self.activate(&first.id, "", "", query)?;
         Ok((first.title, outcome))
     }
@@ -324,7 +329,7 @@ impl Engine {
 
     pub fn save_snippet(&mut self, s: &usage::Snippet) -> Result<i64, String> {
         if s.name.trim().is_empty() || s.body.is_empty() {
-            return Err("un extrait a besoin d'un nom et d'un texte".into());
+            return Err(t("un extrait a besoin d'un nom et d'un texte"));
         }
         let id = self.db.as_ref().ok_or("base de données indisponible")?.save_snippet(s).map_err(|e| e.to_string())?;
         self.reload_snippets();
@@ -339,6 +344,7 @@ impl Engine {
 
     pub fn save_settings(&mut self, s: Settings) -> Result<(), String> {
         self.store.save_settings(&s)?;
+        crate::i18n::set_locale(&s.locale);
         self.settings = s;
         Ok(())
     }
@@ -347,6 +353,16 @@ impl Engine {
         self.preset = self.store.set_active(name)?;
         self.warning = None;
         Ok(())
+    }
+}
+
+/// Action titles and prompts are fixed French texts: translated on the way out.
+fn localize_actions(actions: &mut [Action]) {
+    for a in actions {
+        a.title = t(&a.title);
+        if let Some(arg) = &a.arg {
+            a.arg = Some(t(arg));
+        }
     }
 }
 
