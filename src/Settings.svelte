@@ -10,6 +10,7 @@
   const MODULE_NAMES = {
     commands: 'Commandes Landry',
     apps: 'Applications',
+    calc: 'Calcul, dates, montants',
     tools: 'Boîte à outils',
     projects: 'Projets git',
     files: 'Fichiers',

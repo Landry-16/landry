@@ -9,7 +9,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub const DEFAULT_NAME: &str = "Défaut";
 
 /// Every module the bar knows, in default display order.
-pub const MODULES: &[&str] = &["commands", "apps", "tools", "projects", "files", "system", "cloud"];
+pub const MODULES: &[&str] = &["commands", "apps", "calc", "tools", "projects", "files", "system", "cloud"];
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -337,6 +337,12 @@ pub struct Settings {
     pub terminal_run: String,
     /// Vercel team id for team projects; empty for a personal account.
     pub vercel_team: String,
+    /// VAT rate in percent, for "100 ht" / "120 ttc".
+    pub vat_rate: f64,
+    /// Micro-entreprise contribution rate in percent ("ca 3000"); none until the user sets it.
+    pub micro_rate: Option<f64>,
+    /// Optional "versement libératoire" rate in percent.
+    pub micro_tax_rate: Option<f64>,
 }
 
 impl Default for Settings {
@@ -361,6 +367,9 @@ impl Default for Settings {
             terminal: "gnome-terminal --working-directory={dir}".into(),
             terminal_run: "gnome-terminal --working-directory={dir} -- bash -lc {cmd}".into(),
             vercel_team: String::new(),
+            vat_rate: 20.0,
+            micro_rate: None,
+            micro_tax_rate: None,
         }
     }
 }

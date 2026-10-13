@@ -27,6 +27,8 @@ percent-encoding = "2.3.2"
 notify = "8.2.0"
 keyring = "4.2.0"
 reqwest = { version = "0.13.5", features = ["blocking", "json", "query"] }
+fend-core = "1.5.8"
+chrono-tz = { version = "0.10.4", features = ["case-insensitive"] }
 ashpd = { version = "0.13.13", features = ["screenshot"] }
 
 [profile.release]

@@ -10,6 +10,7 @@
     apps: 'Application',
     commands: 'Commande',
     tools: 'Outil',
+    calc: 'Calcul',
     projects: 'Projet',
     files: 'Fichier',
     system: 'Système',

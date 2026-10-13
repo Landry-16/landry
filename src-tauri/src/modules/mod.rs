@@ -2,6 +2,9 @@
 
 pub mod cloud;
 pub mod color;
+pub mod dates;
+pub mod money;
+pub mod calc;
 pub mod files;
 pub mod projects;
 pub mod system;
@@ -27,6 +30,15 @@ pub fn query(enabled: &[String], settings: &Settings, q: &str) -> Vec<Item> {
     let mut out = Vec::new();
     if q.is_empty() {
         return out;
+    }
+    if enabled.iter().any(|m| m == "calc") {
+        let mut found = dates::query(q);
+        found.extend(money::query(settings, q));
+        // The calculator would read "15h" as 15 hours: only when nothing else understood the query.
+        if found.is_empty() {
+            found = calc::query(q);
+        }
+        out.extend(found);
     }
     if enabled.iter().any(|m| m == "tools") {
         out.extend(tools::query(q));
@@ -66,6 +78,11 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "projects" => projects::run(settings, item, action, arg),
         "system" => system::run(settings, item, action, arg),
         "cloud" => cloud::run(settings, item, action),
+        "calc" => match action {
+            "copy" => Ok(Outcome::Copy(item.data.clone())),
+            "settings" => Ok(Outcome::Settings),
+            _ => Err(item.subtitle.clone()),
+        },
         "tools" => match action {
             "copy" => Ok(Outcome::Copy(item.data.clone())),
             "fill" => Ok(Outcome::Fill(item.data.clone())),

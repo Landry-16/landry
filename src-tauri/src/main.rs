@@ -550,6 +550,7 @@ fn index_apps(app: &AppHandle) {
 /// Tools, SSH hosts, projects and files; files stay watched afterwards.
 fn index_others(app: &AppHandle) {
     let settings = engine(app).settings.clone();
+    std::thread::spawn(modules::calc::refresh_rates);
     {
         let mut e = engine(app);
         e.set_index("tools", modules::tools::catalog());

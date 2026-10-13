@@ -28,8 +28,12 @@
       failure = `Ligne invalide (attendu « clé = valeur ») : ${bad.join(', ')}`;
       return;
     }
+    const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
     const next = {
       ...settings,
+      vat_rate: num(settings.vat_rate) ?? 20,
+      micro_rate: num(settings.micro_rate),
+      micro_tax_rate: num(settings.micro_tax_rate),
       file_roots: roots.split('\n').map((l) => l.trim()).filter(Boolean),
       aliases: a.map,
       search_prefixes: p.map,
@@ -61,6 +65,14 @@
       <label>Terminal avec commande <input bind:value={settings.terminal_run} spellcheck="false" /></label>
       <label>Équipe Vercel (identifiant, facultatif) <input bind:value={settings.vercel_team} spellcheck="false" /></label>
       <p class="hint">Variables : {'{path}'}, {'{dir}'}, {'{cmd}'}. Chaque variable devient un seul argument, sans passer par un shell.</p>
+    </div>
+
+    <div class="group">
+      <h2>Montants</h2>
+      <label>Taux de TVA (%) <input type="number" min="0" max="100" step="0.1" bind:value={settings.vat_rate} /></label>
+      <label>Cotisations micro-entreprise (%) <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_rate} placeholder="à renseigner" /></label>
+      <label>Versement libératoire (%, facultatif) <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_tax_rate} /></label>
+      <p class="hint">Exemples : « 100 ht », « 120 ttc », « ca 3000 ». Les taux changent chaque année : vérifie-les sur le site de l'Urssaf.</p>
     </div>
 
     <div class="group">
