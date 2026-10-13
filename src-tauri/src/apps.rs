@@ -137,7 +137,7 @@ pub fn launch(path: &Path) -> Result<(), String> {
         .process_group(0)
         .spawn()
         .map(|_| ())
-        .map_err(|e| format!("lancement impossible : {e}"))
+        .map_err(|e| crate::i18n::tf("lancement impossible : {e}", &[("e", &e)]))
 }
 
 #[cfg(test)]

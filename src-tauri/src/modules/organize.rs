@@ -104,12 +104,12 @@ pub fn when(ts: i64, now: DateTime<Local>) -> String {
     let Some(t) = Local.timestamp_opt(ts, 0).single() else { return String::new() };
     let days = (t.date_naive() - now.date_naive()).num_days();
     let day = match days {
-        0 => "aujourd'hui".to_string(),
-        1 => "demain".to_string(),
-        -1 => "hier".to_string(),
+        0 => crate::i18n::t("aujourd'hui"),
+        1 => crate::i18n::t("demain"),
+        -1 => crate::i18n::t("hier"),
         _ => super::dates::long_date(t.date_naive()),
     };
-    format!("{day} à {}", t.format("%H:%M"))
+    crate::i18n::tf("{day} à {h}", &[("day", &day), ("h", &t.format("%H:%M"))])
 }
 
 /// "10 min", "5m", "1h30", "90s", "25" (minutes) -> seconds.

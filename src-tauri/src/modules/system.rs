@@ -2,6 +2,7 @@
 
 use crate::config::Settings;
 use crate::engine::Outcome;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use crate::util;
 
@@ -39,7 +40,7 @@ pub fn parse_ss(out: &str) -> Vec<Listener> {
 fn ports(filter: &str) -> Vec<Item> {
     let out = match util::output("ss", &["-ltnpH"], None) {
         Ok(o) => o,
-        Err(e) => return vec![info("port:err", "Ports illisibles", &e)],
+        Err(e) => return vec![info("port:err", &t("Ports illisibles"), &e)],
     };
     parse_ss(&out)
         .into_iter()
@@ -55,8 +56,8 @@ fn ports(filter: &str) -> Vec<Item> {
                 module: "system".into(),
                 title: format!("Port {} · {}", l.port, l.process),
                 subtitle: match l.pid {
-                    Some(p) => format!("pid {p} · écoute sur {}", l.addr),
-                    None => format!("écoute sur {} (processus d'un autre utilisateur)", l.addr),
+                    Some(p) => tf("pid {p} · écoute sur {a}", &[("p", &p), ("a", &l.addr)]),
+                    None => tf("écoute sur {a} (processus d'un autre utilisateur)", &[("a", &l.addr)]),
                 },
                 actions,
                 data: format!("{}\t{}", l.port, l.pid.map(|p| p.to_string()).unwrap_or_default()),
@@ -92,7 +93,7 @@ pub fn ssh_items() -> Vec<Item> {
             id: format!("ssh:{h}"),
             module: "system".into(),
             title: format!("ssh {h}"),
-            subtitle: "Se connecter dans un terminal".into(),
+            subtitle: t("Se connecter dans un terminal"),
             keywords: vec![h.clone(), "ssh".into(), "serveur".into()],
             actions: vec![Action::new("ssh", "Se connecter"), Action::new("copy", "Copier la commande")],
             data: h,
@@ -104,7 +105,7 @@ pub fn ssh_items() -> Vec<Item> {
 fn docker(filter: &str) -> Vec<Item> {
     let out = match util::output("docker", &["ps", "-a", "--format", "{{json .}}"], None) {
         Ok(o) => o,
-        Err(e) => return vec![info("docker:err", "Docker indisponible", &e)],
+        Err(e) => return vec![info("docker:err", &t("Docker indisponible"), &e)],
     };
     let items: Vec<Item> = out
         .lines()
@@ -139,7 +140,7 @@ fn docker(filter: &str) -> Vec<Item> {
         })
         .collect();
     if items.is_empty() {
-        vec![info("docker:none", "Aucun conteneur", "docker ps -a ne renvoie rien")]
+        vec![info("docker:none", &t("Aucun conteneur"), &t("docker ps -a ne renvoie rien"))]
     } else {
         items
     }
@@ -171,10 +172,10 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
             Outcome::Hide
         }
         "kill" | "kill9" => {
-            let pid = item.data.split('\t').nth(1).filter(|p| !p.is_empty()).ok_or("processus inconnu")?;
+            let pid = item.data.split('\t').nth(1).filter(|p| !p.is_empty()).ok_or_else(|| t("processus inconnu"))?;
             let sig = if action == "kill9" { "-KILL" } else { "-TERM" };
             util::output("kill", &[sig, pid], None)?;
-            Outcome::Message(format!("Signal envoyé au processus {pid}"))
+            Outcome::Message(tf("Signal envoyé au processus {pid}", &[("pid", &pid)]))
         }
         "ssh" => {
             // `--` keeps a host name from being read as an ssh option.
@@ -184,7 +185,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
         "copy" => Outcome::Copy(format!("ssh {}", item.data)),
         "start" | "stop" | "restart" => {
             util::output("docker", &[action, &item.data], None)?;
-            Outcome::Message(format!("docker {action} {} : fait", item.data))
+            Outcome::Message(tf("docker {action} {name} : fait", &[("action", &action), ("name", &item.data)]))
         }
         "logs" => {
             term(&format!("docker logs -f --tail 200 {}; exec bash", shell_quote(&item.data)))?;
@@ -195,7 +196,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
             Outcome::Hide
         }
         "" => return Err(item.subtitle.clone()),
-        a => return Err(format!("action inconnue : {a}")),
+        a => return Err(tf("action inconnue : {a}", &[("a", &a)])),
     })
 }
 

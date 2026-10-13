@@ -2,6 +2,7 @@
 
 use crate::config::{Preset, Settings, DEFAULT_NAME};
 use crate::engine::Engine;
+use crate::i18n::{t, tf};
 use crate::usage::{Note, Snippet};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -28,7 +29,7 @@ impl Engine {
             .filter(|i| !i.builtin && i.error.is_none())
             .filter_map(|i| self.store.get(&i.name).ok())
             .collect();
-        let db = self.db_ref().ok_or("base de données indisponible")?;
+        let db = self.db_ref().ok_or_else(|| t("base de données indisponible"))?;
         Ok(Backup {
             format: FORMAT.into(),
             version: 1,
@@ -51,9 +52,9 @@ impl Engine {
     /// under a new name on conflict, snippets and notes added unless already present.
     pub fn import_backup(&mut self, path: &Path) -> Result<String, String> {
         let s = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let b: Backup = serde_json::from_str(&s).map_err(|e| format!("fichier de sauvegarde invalide : {e}"))?;
+        let b: Backup = serde_json::from_str(&s).map_err(|e| tf("fichier de sauvegarde invalide : {e}", &[("e", &e)]))?;
         if b.format != FORMAT {
-            return Err("ce fichier n'est pas une sauvegarde Landry".into());
+            return Err(t("ce fichier n'est pas une sauvegarde Landry"));
         }
         self.store.backup_settings()?;
         let mut settings = b.settings;
@@ -91,7 +92,7 @@ impl Engine {
                 snippets += 1;
             }
         }
-        let db = self.db_ref().ok_or("base de données indisponible")?;
+        let db = self.db_ref().ok_or_else(|| t("base de données indisponible"))?;
         let notes_now = db.notes().map_err(|e| e.to_string())?;
         let mut notes = 0;
         for n in b.notes {
@@ -101,7 +102,10 @@ impl Engine {
             }
         }
         self.reload_organizer();
-        Ok(format!("Importé : réglages, {presets} preset(s), {snippets} extrait(s), {notes} note(s)."))
+        Ok(tf(
+            "Importé : réglages, {p} preset(s), {s} extrait(s), {n} note(s).",
+            &[("p", &presets), ("s", &snippets), ("n", &notes)],
+        ))
     }
 }
 

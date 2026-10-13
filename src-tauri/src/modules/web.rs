@@ -3,6 +3,7 @@
 
 use crate::config::Settings;
 use crate::engine::Outcome;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use crate::util;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
@@ -36,16 +37,16 @@ pub fn query(settings: &Settings, q: &str) -> Vec<Item> {
                 id: format!("web:hint:{word}"),
                 module: "web".into(),
                 title: format!("{word} <texte>"),
-                subtitle: format!("Recherche sur {}", host(tpl)),
+                subtitle: tf("Recherche sur {h}", &[("h", &host(tpl))]),
                 ..Default::default()
             }];
         }
         let url = search_url(tpl, rest);
-        return vec![open_item(format!("web:search:{word}"), format!("Chercher « {rest} »"), format!("sur {}", host(tpl)), url)];
+        return vec![open_item(format!("web:search:{word}"), tf("Chercher « {q} »", &[("q", &rest)]), tf("sur {h}", &[("h", &host(tpl))]), url)];
     }
     // A typed address opens directly.
     if !q.contains(' ') && (q.starts_with("http://") || q.starts_with("https://")) && url::Url::parse(q).is_ok() {
-        return vec![open_item("web:url".into(), format!("Ouvrir {q}"), "Dans le navigateur".into(), q.to_string())];
+        return vec![open_item("web:url".into(), tf("Ouvrir {u}", &[("u", &q)]), t("Dans le navigateur"), q.to_string())];
     }
     vec![]
 }
@@ -134,7 +135,7 @@ pub fn bookmarks() -> Vec<Item> {
     all.dedup_by(|a, b| a.1 == b.1);
     all.into_iter()
         .map(|(title, url, browser)| {
-            let mut it = open_item(format!("bm:{url}"), title, format!("Favori {browser} · {}", host(&url)), url.clone());
+            let mut it = open_item(format!("bm:{url}"), title, tf("Favori {b} · {h}", &[("b", &browser), ("h", &host(&url))]), url.clone());
             it.keywords = vec![host(&url), "favori".into()];
             it
         })
@@ -169,14 +170,14 @@ pub fn translate(settings: &Settings, key: &str) -> Result<Vec<Item>, String> {
             body["api_key"] = k.into();
         }
         let v: serde_json::Value = client.post(settings.translate_url.trim()).json(&body).send().map_err(|e| e.to_string())?.json().map_err(|e| e.to_string())?;
-        v.get("translatedText").and_then(|t| t.as_str()).map(String::from).ok_or_else(|| v.get("error").and_then(|e| e.as_str()).unwrap_or("réponse inattendue").to_string())?
+        v.get("translatedText").and_then(|t| t.as_str()).map(String::from).ok_or_else(|| v.get("error").and_then(|e| e.as_str()).map(str::to_string).unwrap_or_else(|| t("réponse inattendue")))?
     } else {
         let Some(k) = super::cloud::token("translate") else {
             return Ok(vec![Item {
                 id: "tr:token".into(),
                 module: "web".into(),
-                title: "Clé de traduction manquante".into(),
-                subtitle: "Réglages Landry, Comptes : clé DeepL (ou une URL LibreTranslate dans Général)".into(),
+                title: t("Clé de traduction manquante"),
+                subtitle: t("Réglages Landry, Comptes : clé DeepL (ou une URL LibreTranslate dans Général)"),
                 actions: vec![Action::new("settings", "Ouvrir les réglages")],
                 ..Default::default()
             }]);
@@ -194,13 +195,13 @@ pub fn translate(settings: &Settings, key: &str) -> Result<Vec<Item>, String> {
         if !status.is_success() {
             return Err(format!("DeepL {status} {}", v.get("message").and_then(|m| m.as_str()).unwrap_or("")));
         }
-        v.pointer("/translations/0/text").and_then(|t| t.as_str()).map(String::from).ok_or("réponse DeepL inattendue")?
+        v.pointer("/translations/0/text").and_then(|t| t.as_str()).map(String::from).ok_or_else(|| t("réponse DeepL inattendue"))?
     };
     Ok(vec![Item {
         id: format!("tr:{lang}"),
         module: "web".into(),
         title: translated.clone(),
-        subtitle: format!("Traduction ({lang}) · Entrée pour copier"),
+        subtitle: tf("Traduction ({lang}) · Entrée pour copier", &[("lang", &lang)]),
         actions: vec![Action::new("copy", "Copier")],
         data: translated,
         ..Default::default()

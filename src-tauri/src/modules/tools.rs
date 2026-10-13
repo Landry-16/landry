@@ -1,6 +1,7 @@
 //! Developer toolbox: results computed from the query itself ("b64 bonjour", "#ff8800"...).
 
 use super::color;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
@@ -32,8 +33,8 @@ pub fn catalog() -> Vec<Item> {
         .map(|(fill, title, sub, kw)| Item {
             id: format!("tool:catalog:{}", fill.trim()),
             module: "tools".into(),
-            title: (*title).into(),
-            subtitle: (*sub).into(),
+            title: t(title),
+            subtitle: t(sub),
             keywords: kw.iter().map(|s| s.to_string()).chain([fill.trim().to_string()]).collect(),
             actions: vec![Action::new("fill", "Utiliser")],
             data: (*fill).into(),
@@ -43,8 +44,8 @@ pub fn catalog() -> Vec<Item> {
     out.push(Item {
         id: "tool:diff".into(),
         module: "tools".into(),
-        title: "Comparer deux textes".into(),
-        subtitle: "Diff ligne par ligne".into(),
+        title: t("Comparer deux textes"),
+        subtitle: t("Diff ligne par ligne"),
         keywords: vec!["diff".into(), "comparer".into(), "difference".into()],
         actions: vec![Action::new("view", "Ouvrir")],
         data: "diff".into(),
@@ -57,8 +58,8 @@ pub fn catalog() -> Vec<Item> {
         out.push(Item {
             id: id.into(),
             module: "tools".into(),
-            title: title.into(),
-            subtitle: sub.into(),
+            title: t(title),
+            subtitle: t(sub),
             keywords: kw.iter().map(|s| s.to_string()).collect(),
             actions: vec![Action::new(action, title)],
             ..Default::default()
@@ -68,7 +69,7 @@ pub fn catalog() -> Vec<Item> {
         id: "tool:catalog:qr".into(),
         module: "tools".into(),
         title: "QR code".into(),
-        subtitle: "qr <texte ou URL>".into(),
+        subtitle: t("qr <texte ou URL>"),
         keywords: vec!["qr".into(), "qrcode".into()],
         actions: vec![Action::new("fill", "Utiliser")],
         data: "qr ".into(),
@@ -77,8 +78,8 @@ pub fn catalog() -> Vec<Item> {
     out.push(Item {
         id: "tool:pick".into(),
         module: "tools".into(),
-        title: "Pipette couleur".into(),
-        subtitle: "Prendre une couleur à l'écran".into(),
+        title: t("Pipette couleur"),
+        subtitle: t("Prendre une couleur à l'écran"),
         keywords: vec!["pipette".into(), "color picker".into(), "couleur".into(), "pick".into()],
         actions: vec![Action::new("pick", "Choisir une couleur")],
         ..Default::default()
@@ -101,7 +102,7 @@ fn copy(key: &str, title: &str, subtitle: &str, value: String) -> Item {
         id: format!("tool:{key}"),
         module: "tools".into(),
         title: one_line(title),
-        subtitle: subtitle.into(),
+        subtitle: t(subtitle),
         actions: vec![Action::new("copy", "Copier")],
         data: value,
         ..Default::default()
@@ -109,7 +110,7 @@ fn copy(key: &str, title: &str, subtitle: &str, value: String) -> Item {
 }
 
 fn info(key: &str, title: &str, subtitle: &str) -> Item {
-    Item { id: format!("tool:{key}"), module: "tools".into(), title: one_line(title), subtitle: subtitle.into(), ..Default::default() }
+    Item { id: format!("tool:{key}"), module: "tools".into(), title: one_line(&t(title)), subtitle: t(subtitle), ..Default::default() }
 }
 
 fn b64_decode(s: &str) -> Option<Vec<u8>> {
@@ -133,7 +134,7 @@ fn timestamp(rest: &str) -> Vec<Item> {
     let now = Utc::now();
     if rest.is_empty() {
         return vec![
-            copy("ts:now", &now.timestamp().to_string(), &format!("Timestamp actuel, {}", local(now)), now.timestamp().to_string()),
+            copy("ts:now", &now.timestamp().to_string(), &tf("Timestamp actuel, {d}", &[("d", &local(now))]), now.timestamp().to_string()),
             copy("ts:ms", &now.timestamp_millis().to_string(), "En millisecondes", now.timestamp_millis().to_string()),
             copy("ts:iso", &now.to_rfc3339(), "ISO 8601 (UTC)", now.to_rfc3339()),
         ];
@@ -174,8 +175,8 @@ fn jwt(token: &str) -> Vec<Item> {
     let mut sub = Vec::new();
     for key in ["exp", "iat"] {
         if let Some(dt) = payload.get(key).and_then(|v| v.as_i64()).and_then(|n| Utc.timestamp_opt(n, 0).single()) {
-            let label = if key == "exp" { if dt < Utc::now() { "expiré le" } else { "expire le" } } else { "émis le" };
-            sub.push(format!("{label} {}", local(dt)));
+            let label = if key == "exp" { if dt < Utc::now() { "expiré le {d}" } else { "expire le {d}" } } else { "émis le {d}" };
+            sub.push(tf(label, &[("d", &local(dt))]));
         }
     }
     let pretty = serde_json::to_string_pretty(&serde_json::json!({ "header": header, "payload": payload })).unwrap_or_default();
@@ -205,9 +206,9 @@ fn regex_test(rest: &str) -> Vec<Item> {
         Ok(re) => {
             let found: Vec<&str> = re.find_iter(text).map(|m| m.as_str()).collect();
             let title = match found.len() {
-                0 => "Aucune correspondance".to_string(),
-                1 => format!("1 correspondance : {}", found[0]),
-                n => format!("{n} correspondances : {}", found.iter().take(8).cloned().collect::<Vec<_>>().join(" · ")),
+                0 => t("Aucune correspondance"),
+                1 => tf("1 correspondance : {m}", &[("m", &found[0])]),
+                n => tf("{n} correspondances : {m}", &[("n", &n), ("m", &found.iter().take(8).cloned().collect::<Vec<_>>().join(" · "))]),
             };
             vec![copy("regex", &title, &format!("/{pattern}/{flags}"), found.join("\n"))]
         }
@@ -217,7 +218,7 @@ fn regex_test(rest: &str) -> Vec<Item> {
 fn colors(c: color::Rgb, prefix: &str) -> Vec<Item> {
     let w = color::contrast(c, color::Rgb { r: 1.0, g: 1.0, b: 1.0 });
     let k = color::contrast(c, color::Rgb { r: 0.0, g: 0.0, b: 0.0 });
-    let sub = format!("Contraste {w:.2} sur blanc, {k:.2} sur noir");
+    let sub = tf("Contraste {w} sur blanc, {k} sur noir", &[("w", &format!("{w:.2}")), ("k", &format!("{k:.2}"))]);
     [("hex", c.hex()), ("rgb", c.rgb()), ("hsl", c.hsl()), ("oklch", c.oklch())]
         .into_iter()
         .map(|(k2, v)| copy(&format!("{prefix}color:{k2}"), &v, &sub, v.clone()))
@@ -226,7 +227,7 @@ fn colors(c: color::Rgb, prefix: &str) -> Vec<Item> {
 
 pub fn query(q: &str) -> Vec<Item> {
     let (word, rest) = q.split_once(' ').map(|(a, b)| (a, b.trim())).unwrap_or((q, ""));
-    let digest = |kind: &str, bytes: Vec<u8>| copy(kind, &hex(&bytes), &format!("{} de « {} »", kind.to_uppercase(), one_line(rest)), hex(&bytes));
+    let digest = |kind: &str, bytes: Vec<u8>| copy(kind, &hex(&bytes), &tf("{k} de « {t} »", &[("k", &kind.to_uppercase()), ("t", &one_line(rest))]), hex(&bytes));
     match (word.to_lowercase().as_str(), rest.is_empty()) {
         ("uuid", _) => {
             let id = uuid::Uuid::new_v4().to_string();
@@ -266,8 +267,8 @@ pub fn query(q: &str) -> Vec<Item> {
         ("qr" | "qrcode", false) => vec![Item {
             id: "tool:qr".into(),
             module: "tools".into(),
-            title: format!("QR code : {}", one_line(rest)),
-            subtitle: "Entrée pour l'enregistrer en SVG dans Téléchargements".into(),
+            title: tf("QR code : {t}", &[("t", &one_line(rest))]),
+            subtitle: t("Entrée pour l'enregistrer en SVG dans Téléchargements"),
             actions: vec![Action::new("qr-save", "Enregistrer en SVG"), Action::new("copy", "Copier le texte")],
             data: rest.to_string(),
             ..Default::default()
@@ -279,7 +280,7 @@ pub fn query(q: &str) -> Vec<Item> {
             match (parts.first().and_then(|p| color::parse(p)), parts.get(1).and_then(|p| color::parse(p))) {
                 (Some(a), Some(b)) => {
                     let r = color::contrast(a, b);
-                    vec![copy("contrast", &format!("Contraste {r:.2}:1"), &color::wcag(r), format!("{r:.2}"))]
+                    vec![copy("contrast", &tf("Contraste {r}:1", &[("r", &format!("{r:.2}"))]), &color::wcag(r), format!("{r:.2}"))]
                 }
                 _ => vec![info("contrast:err", "Deux couleurs attendues", "contraste #ffffff #1c1a2e")],
             }
@@ -290,7 +291,7 @@ pub fn query(q: &str) -> Vec<Item> {
 
 /// SVG of a QR code (dark modules on white, with a quiet zone).
 pub fn qr_svg(text: &str) -> Result<String, String> {
-    let code = qrcode::QrCode::new(text.as_bytes()).map_err(|e| format!("QR code impossible : {e}"))?;
+    let code = qrcode::QrCode::new(text.as_bytes()).map_err(|e| tf("QR code impossible : {e}", &[("e", &e)]))?;
     Ok(code.render::<qrcode::render::svg::Color>().min_dimensions(256, 256).quiet_zone(true).build())
 }
 

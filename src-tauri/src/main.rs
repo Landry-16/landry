@@ -4,6 +4,7 @@ mod config;
 mod doctor;
 mod engine;
 mod i18n;
+use i18n::{t, tf};
 mod ipc;
 mod modules;
 mod organizer;
@@ -193,8 +194,9 @@ fn apply_outcome(app: &AppHandle, outcome: &Outcome) {
     }
 }
 
+/// Summary and body may be French keys: translated here.
 fn notify(summary: &str, body: &str) {
-    if let Err(e) = notify_rust::Notification::new().appname("Landry").summary(summary).body(body).show() {
+    if let Err(e) = notify_rust::Notification::new().appname("Landry").summary(&t(summary)).body(&t(body)).show() {
         eprintln!("landry: notification impossible : {e}");
     }
 }
@@ -233,7 +235,7 @@ fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, sile
         .spawn();
     let mut child = match child {
         Ok(c) => c,
-        Err(e) => return notify(label, &format!("Lancement impossible : {e}")),
+        Err(e) => return notify(label, &tf("Lancement impossible : {e}", &[("e", &e)])),
     };
     let start = Instant::now();
     let status = loop {
@@ -256,12 +258,12 @@ fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, sile
         let _ = e.read_to_string(&mut err);
     }
     let text = match status {
-        None => format!("{label} : arrêté après 60 s"),
+        None => tf("{l} : arrêté après 60 s", &[("l", &label)]),
         Some(s) if s.success() => {
             let o = out.trim();
-            if o.is_empty() { format!("{label} : terminé") } else { o.chars().take(2000).collect() }
+            if o.is_empty() { tf("{l} : terminé", &[("l", &label)]) } else { o.chars().take(2000).collect() }
         }
-        Some(s) => format!("{label} : échec ({s}) {}", err.trim().chars().take(500).collect::<String>()),
+        Some(s) => tf("{l} : échec ({s}) {e}", &[("l", &label), ("s", &s), ("e", &err.trim().chars().take(500).collect::<String>())]),
     };
     let visible = bar(app).and_then(|w| w.is_visible().ok()).unwrap_or(false);
     if silent || !visible {
@@ -295,10 +297,10 @@ fn capture(app: &AppHandle, kind: &str) {
                 show_bar(app, String::new());
                 set_clipboard(app, text.clone());
                 let preview: String = text.chars().take(300).collect();
-                let _ = app.emit("landry://notice", format!("Texte copié : {preview}"));
+                let _ = app.emit("landry://notice", tf("Texte copié : {t}", &[("t", &preview)]));
             }
             Ok(_) => notify("OCR", "Aucun texte reconnu dans cette zone."),
-            Err(e) => notify("OCR indisponible", &format!("{e}. Installe tesseract-ocr et tesseract-ocr-fra (scripts/install-deps.sh).")),
+            Err(e) => notify("OCR indisponible", &tf("{e}. Installe tesseract-ocr et tesseract-ocr-fra (scripts/install-deps.sh).", &[("e", &e)])),
         }
         return;
     }
@@ -319,7 +321,7 @@ fn capture(app: &AppHandle, kind: &str) {
     let copied = rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false);
     notify(
         "Capture enregistrée",
-        &format!("{}{}", path.display(), if copied { " (copiée dans le presse-papiers)" } else { "" }),
+        &if copied { tf("{p} (copiée dans le presse-papiers)", &[("p", &path.display())]) } else { path.display().to_string() },
     );
 }
 
@@ -533,9 +535,16 @@ fn save_settings(app: AppHandle, settings: config::Settings) -> Result<(), Strin
     std::thread::spawn(move || {
         let projects = modules::projects::scan(&settings, true);
         let files = modules::files::scan(&settings);
+        let bookmarks = modules::web::bookmarks();
         let mut e = engine(&h);
         e.set_index("projects", projects);
         e.set_index("files", files);
+        // Indexed items carry fixed texts: rebuild them in case the language changed.
+        e.set_index("web", bookmarks);
+        e.set_index("tools", modules::tools::catalog());
+        e.set_index("system", modules::system::ssh_items());
+        e.set_index("scripts", modules::scripts::scan());
+        e.reload_organizer();
     });
     Ok(())
 }
@@ -564,14 +573,14 @@ fn snippet_delete(state: State<EngineState>, id: i64) -> Result<(), String> {
 #[tauri::command]
 fn notes_list(state: State<EngineState>) -> Result<Vec<usage::Note>, String> {
     let e = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    e.db_ref().ok_or("base de données indisponible")?.notes().map_err(|e| e.to_string())
+    e.db_ref().ok_or_else(|| crate::i18n::t("base de données indisponible"))?.notes().map_err(|e| e.to_string())
 }
 
 /// Save (id 0 creates); returns the id.
 #[tauri::command]
 fn note_save(state: State<EngineState>, id: i64, body: String) -> Result<i64, String> {
     let mut e = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    let id = e.db_ref().ok_or("base de données indisponible")?.save_note(id, &body).map_err(|e| e.to_string())?;
+    let id = e.db_ref().ok_or_else(|| crate::i18n::t("base de données indisponible"))?.save_note(id, &body).map_err(|e| e.to_string())?;
     e.reload_organizer();
     Ok(id)
 }
@@ -579,7 +588,7 @@ fn note_save(state: State<EngineState>, id: i64, body: String) -> Result<i64, St
 #[tauri::command]
 fn note_delete(state: State<EngineState>, id: i64) -> Result<(), String> {
     let mut e = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    e.db_ref().ok_or("base de données indisponible")?.delete_note(id).map_err(|e| e.to_string())?;
+    e.db_ref().ok_or_else(|| crate::i18n::t("base de données indisponible"))?.delete_note(id).map_err(|e| e.to_string())?;
     e.reload_organizer();
     Ok(())
 }

@@ -78,7 +78,7 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 5. L'AppImage après `scripts/install-deps.sh`.
 
 ## Prochaine étape
-Aucune phase restante. Pistes : traduire aussi les textes produits par le cœur (titres de résultats, messages), extensions TypeScript, intégration IA prévue plus tard.
+Aucune phase restante. Pistes : extensions TypeScript, intégration IA prévue plus tard.
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -112,7 +112,7 @@ Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `wind
 - Collage : nouvelle session RemoteDesktop à chaque fois, pour ne pas laisser l'indicateur de contrôle à distance de GNOME allumé en permanence.
 - Minuteurs enregistrés en base : ils survivent à un redémarrage ; un minuteur échu pendant l'arrêt est notifié au redémarrage.
 - Sous un résultat calculé (calcul, outil), seules les correspondances textuelles nettes restent affichées.
-- Interface traduite (composants) ; les textes produits par le cœur Rust (titres de résultats, messages) restent en français.
+- Interface et cœur traduits : un seul dictionnaire `src/i18n/en.json` (clé = texte français), lu par Svelte (`t()`) et par Rust (`i18n::t`, `i18n::tf`) ; titres d'actions traduits à la sortie du moteur ; index reconstruits à l'enregistrement des réglages. Restent en français : la CLI (`landry doctor`, réponses de `landry …`) et les journaux.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.
 
 ## Problèmes ouverts

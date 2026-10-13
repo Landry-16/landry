@@ -3,6 +3,7 @@
 use super::Preview;
 use crate::config::Settings;
 use crate::engine::Outcome;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use crate::util;
 use std::path::{Path, PathBuf};
@@ -122,15 +123,15 @@ fn status(repo: &Path) -> Option<Status> {
 fn describe(st: &Status) -> String {
     let mut parts = Vec::new();
     if st.changed > 0 {
-        parts.push(format!("{} modifié{}", st.changed, if st.changed > 1 { "s" } else { "" }));
+        parts.push(if st.changed > 1 { tf("{n} modifiés", &[("n", &st.changed)]) } else { t("1 modifié") });
     }
     if st.behind > 0 {
-        parts.push(format!("{} en retard", st.behind));
+        parts.push(tf("{n} en retard", &[("n", &st.behind)]));
     }
     if st.ahead > 0 {
-        parts.push(format!("{} en avance", st.ahead));
+        parts.push(tf("{n} en avance", &[("n", &st.ahead)]));
     }
-    if parts.is_empty() { "propre".into() } else { parts.join(", ") }
+    if parts.is_empty() { t("propre") } else { parts.join(", ") }
 }
 
 pub fn npm_scripts(repo: &Path) -> Vec<String> {
@@ -194,15 +195,15 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
         }
         "pull" => {
             let out = util::output("git", &["pull", "--ff-only"], Some(repo))?;
-            Outcome::Message(format!("git pull : {}", out.lines().last().unwrap_or("à jour").trim()))
+            Outcome::Message(format!("git pull : {}", out.lines().last().map(str::to_string).unwrap_or_else(|| t("à jour")).trim()))
         }
         "web" => {
-            let url = origin(repo).as_deref().and_then(web_url).ok_or("pas de dépôt distant origin")?;
+            let url = origin(repo).as_deref().and_then(web_url).ok_or_else(|| t("pas de dépôt distant origin"))?;
             util::open(&url)?;
             Outcome::Hide
         }
         "pr" => {
-            let url = origin(repo).as_deref().and_then(web_url).ok_or("pas de dépôt distant origin")?;
+            let url = origin(repo).as_deref().and_then(web_url).ok_or_else(|| t("pas de dépôt distant origin"))?;
             util::open(&format!("{url}/compare/{}?expand=1", branch(repo)))?;
             Outcome::Hide
         }
@@ -212,7 +213,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
         }
         "copy-path" => Outcome::Copy(dir.to_string()),
         a => {
-            let script = a.strip_prefix("npm:").ok_or_else(|| format!("action inconnue : {a}"))?;
+            let script = a.strip_prefix("npm:").ok_or_else(|| tf("action inconnue : {a}", &[("a", &a)]))?;
             let cmd = format!("npm run {script}; exec bash");
             util::run_template(&settings.terminal_run, &[("dir", dir), ("cmd", &cmd)], Some(repo))?;
             Outcome::Hide
@@ -222,19 +223,19 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
 
 pub fn preview(item: &Item) -> Preview {
     let repo = Path::new(&item.data);
-    let mut rows = vec![("Branche".to_string(), branch(repo))];
+    let mut rows = vec![(t("Branche"), branch(repo))];
     if let Some(st) = status(repo) {
-        rows.push(("État".into(), describe(&st)));
+        rows.push((t("État"), describe(&st)));
     }
     if let Some(u) = origin(repo).as_deref().and_then(web_url) {
-        rows.push(("Dépôt".into(), u));
+        rows.push((t("Dépôt"), u));
     }
     let scripts = npm_scripts(repo);
     if !scripts.is_empty() {
-        rows.push(("Scripts npm".into(), scripts.join(", ")));
+        rows.push((t("Scripts npm"), scripts.join(", ")));
     }
     if let Ok(log) = util::output("git", &["log", "-1", "--format=%s (%cr)"], Some(repo)) {
-        rows.push(("Dernier commit".into(), log.trim().to_string()));
+        rows.push((t("Dernier commit"), log.trim().to_string()));
     }
     Preview::Props { rows }
 }

@@ -1,6 +1,7 @@
 //! Notes, tasks, timers and time tracking, on the engine side (storage and running state).
 
 use crate::engine::{Engine, Outcome};
+use crate::i18n::{t, tf};
 use crate::modules::organize::{clock, human, parse_duration, parse_task, totals, tracking_csv, when};
 use crate::search::{fold, Action, Item};
 use crate::usage;
@@ -51,20 +52,19 @@ impl Timer {
     fn title(&self, now: i64) -> String {
         let elapsed = now - self.start;
         match &self.kind {
-            TimerKind::Countdown => format!("Minuteur {} · reste {}", self.label, clock(self.length - elapsed)),
-            TimerKind::Stopwatch => format!("Chronomètre · {}", clock(elapsed)),
-            TimerKind::Pomodoro { focus, round } => format!(
-                "Pomodoro {} · {} · reste {}",
-                round + 1,
-                if *focus { "travail" } else { "pause" },
-                clock(self.length - elapsed)
+            TimerKind::Countdown => tf("Minuteur {l} · reste {r}", &[("l", &self.label), ("r", &clock(self.length - elapsed))]),
+            TimerKind::Stopwatch => tf("Chronomètre · {e}", &[("e", &clock(elapsed))]),
+            TimerKind::Pomodoro { focus, round } => tf(
+                "Pomodoro {n} · {phase} · reste {r}",
+                &[("n", &(round + 1)), ("phase", &t(if *focus { "travail" } else { "pause" })), ("r", &clock(self.length - elapsed))],
             ),
         }
     }
 }
 
 fn item(module: &str, id: String, title: String, subtitle: String, actions: Vec<Action>, data: String) -> Item {
-    Item { id, module: module.into(), title, subtitle, actions, data, ..Default::default() }
+    // Fixed texts are French keys; user texts pass through unchanged.
+    Item { id, module: module.into(), title: t(&title), subtitle: t(&subtitle), actions, data, ..Default::default() }
 }
 
 fn first_line(body: &str) -> String {
@@ -81,7 +81,7 @@ fn downloads() -> std::path::PathBuf {
 
 impl Engine {
     fn db(&self) -> Result<&usage::Db, String> {
-        self.db_ref().ok_or_else(|| "base de données indisponible".to_string())
+        self.db_ref().ok_or_else(|| t("base de données indisponible"))
     }
 
     /// Notes and open tasks are indexed so they show up in any search.
@@ -97,7 +97,7 @@ impl Engine {
                     "tasks",
                     format!("task:{}", t.id),
                     t.text.clone(),
-                    t.due.map(|d| format!("Rappel {}", when(d, now))).unwrap_or_else(|| "Sans rappel".into()),
+                    t.due.map(|d| tf("Rappel {w}", &[("w", &when(d, now))])).unwrap_or_else(|| "Sans rappel".into()),
                     vec![Action::new("task-done", "Marquer comme faite"), Action::new("task-delete", "Supprimer").danger()],
                     t.id.to_string(),
                 )
@@ -114,7 +114,7 @@ impl Engine {
                     "notes",
                     format!("note:{}", n.id),
                     first_line(&n.body),
-                    format!("Note · {}", when(n.updated, now)),
+                    tf("Note · {w}", &[("w", &when(n.updated, now))]),
                     vec![Action::new("note-open", "Ouvrir")],
                     n.id.to_string(),
                 );
@@ -140,7 +140,7 @@ impl Engine {
                 out.push(item(
                     "tracking",
                     "track:running".into(),
-                    format!("Suivi : {} · {}", e.label, clock(now - e.start)),
+                    tf("Suivi : {l} · {e}", &[("l", &e.label), ("e", &clock(now - e.start))]),
                     "En cours".into(),
                     vec![Action::new("track-stop", "Arrêter le suivi")],
                     e.label,
@@ -161,8 +161,8 @@ impl Engine {
                 vec![item(
                     "tasks",
                     "task:new".into(),
-                    format!("Ajouter : {text}"),
-                    ts.map(|t| format!("Rappel {}", when(t, now))).unwrap_or_else(|| "Sans rappel".into()),
+                    tf("Ajouter : {t}", &[("t", &text)]),
+                    ts.map(|ts| tf("Rappel {w}", &[("w", &when(ts, now))])).unwrap_or_else(|| "Sans rappel".into()),
                     vec![Action::new("task-add", "Ajouter la tâche")],
                     format!("{}\t{text}", ts.map(|t| t.to_string()).unwrap_or_default()),
                 )]
@@ -180,7 +180,7 @@ impl Engine {
                         out.push(item(
                             "timers",
                             "timer:new".into(),
-                            format!("Lancer un minuteur de {}", human(secs)),
+                            tf("Lancer un minuteur de {d}", &[("d", &human(secs))]),
                             if label.is_empty() { "Notification à la fin".into() } else { label.clone() },
                             vec![Action::new("timer-start", "Lancer")],
                             format!("{secs}\t{label}"),
@@ -204,19 +204,19 @@ impl Engine {
             "suivi" | "track" if on("tracking") => {
                 let mut out = Vec::new();
                 if !rest.is_empty() && fold(rest) != "stop" {
-                    out.push(item("tracking", "track:new".into(), format!("Démarrer le suivi : {rest}"), "Arrête le suivi en cours s'il y en a un".into(), vec![Action::new("track-start", "Démarrer")], rest.to_string()));
+                    out.push(item("tracking", "track:new".into(), tf("Démarrer le suivi : {l}", &[("l", &rest)]), "Arrête le suivi en cours s'il y en a un".into(), vec![Action::new("track-start", "Démarrer")], rest.to_string()));
                 }
                 out.extend(self.status_items(enabled).into_iter().filter(|i| i.module == "tracking"));
                 let midnight = now.date_naive().and_hms_opt(0, 0, 0).and_then(|d| d.and_local_timezone(Local).earliest()).map(|d| d.timestamp()).unwrap_or(0);
                 let today = self.db_ref().and_then(|d| d.entries_since(midnight).ok()).unwrap_or_default();
                 for (label, secs) in totals(&today, midnight, now.timestamp()) {
-                    out.push(item("tracking", format!("track:today:{label}"), format!("{label} : {} aujourd'hui", human(secs)), "Total du jour".into(), vec![Action::new("track-start", "Reprendre")], label));
+                    out.push(item("tracking", format!("track:today:{label}"), tf("{l} : {d} aujourd'hui", &[("l", &label), ("d", &human(secs))]), "Total du jour".into(), vec![Action::new("track-start", "Reprendre")], label));
                 }
                 out.push(item("tracking", "track:export".into(), "Exporter le suivi du temps (CSV)".into(), "Dans le dossier Téléchargements".into(), vec![Action::new("track-export", "Exporter")], String::new()));
                 out
             }
             "note" if on("notes") && !rest.is_empty() => {
-                vec![item("notes", "note:new".into(), format!("Nouvelle note : {rest}"), "Crée la note et l'ouvre".into(), vec![Action::new("note-new", "Créer")], rest.to_string())]
+                vec![item("notes", "note:new".into(), tf("Nouvelle note : {t}", &[("t", &rest)]), "Crée la note et l'ouvre".into(), vec![Action::new("note-new", "Créer")], rest.to_string())]
             }
             "notes" | "note" if on("notes") => {
                 let mut out = vec![item("notes", "note:view".into(), "Ouvrir les notes".into(), "Toutes les notes, avec recherche".into(), vec![Action::new("notes-view", "Ouvrir")], String::new())];
@@ -229,13 +229,13 @@ impl Engine {
 
     pub fn organizer_run(&mut self, item: &Item, action: &str) -> Result<Outcome, String> {
         let now = usage::now();
-        let msg = |s: String| Ok(Outcome::Message(s));
+        let msg = |s: String| Ok(Outcome::Message(t(&s)));
         match action {
             "timer-start" => {
                 let (secs, label) = item.data.split_once('\t').unwrap_or((&item.data, ""));
-                let secs: i64 = secs.parse().map_err(|_| "durée invalide")?;
+                let secs: i64 = secs.parse().map_err(|_| t("durée invalide"))?;
                 self.add_timer(TimerKind::Countdown, label, now, secs);
-                msg(format!("Minuteur lancé : {}", human(secs)))
+                msg(tf("Minuteur lancé : {d}", &[("d", &human(secs))]))
             }
             "stopwatch-start" => {
                 self.add_timer(TimerKind::Stopwatch, "", now, 0);
@@ -246,51 +246,51 @@ impl Engine {
                 msg("Pomodoro démarré : 25 minutes de travail.".into())
             }
             "timer-stop" => {
-                let id: u32 = item.data.parse().map_err(|_| "minuteur inconnu")?;
-                let t = self.timers.iter().find(|t| t.id == id).cloned().ok_or("ce minuteur est déjà terminé")?;
+                let id: u32 = item.data.parse().map_err(|_| t("minuteur inconnu"))?;
+                let t = self.timers.iter().find(|t| t.id == id).cloned().ok_or_else(|| t("ce minuteur est déjà terminé"))?;
                 self.timers.retain(|t| t.id != id);
                 self.persist_timers();
                 msg(match t.kind {
-                    TimerKind::Stopwatch => format!("Chronomètre arrêté à {}", clock(now - t.start)),
+                    TimerKind::Stopwatch => tf("Chronomètre arrêté à {e}", &[("e", &clock(now - t.start))]),
                     _ => "Minuteur arrêté.".into(),
                 })
             }
             "task-add" => {
-                let (due, text) = item.data.split_once('\t').ok_or("tâche invalide")?;
+                let (due, text) = item.data.split_once('\t').ok_or_else(|| t("tâche invalide"))?;
                 if text.trim().is_empty() {
-                    return Err("la tâche est vide".into());
+                    return Err(t("la tâche est vide"));
                 }
                 let due: Option<i64> = due.parse().ok();
                 self.db()?.add_task(text, due).map_err(|e| e.to_string())?;
                 self.reload_organizer();
                 msg(match due {
-                    Some(d) => format!("Tâche ajoutée, rappel {}", when(d, Local::now())),
+                    Some(d) => tf("Tâche ajoutée, rappel {w}", &[("w", &when(d, Local::now()))]),
                     None => "Tâche ajoutée.".into(),
                 })
             }
             "task-done" | "task-delete" => {
-                let id: i64 = item.data.parse().map_err(|_| "tâche inconnue")?;
+                let id: i64 = item.data.parse().map_err(|_| t("tâche inconnue"))?;
                 if action == "task-done" {
                     self.db()?.finish_task(id).map_err(|e| e.to_string())?;
                 } else {
                     self.db()?.delete_task(id).map_err(|e| e.to_string())?;
                 }
                 self.reload_organizer();
-                msg(if action == "task-done" { format!("Faite : {}", item.title) } else { "Tâche supprimée.".into() })
+                msg(if action == "task-done" { tf("Faite : {t}", &[("t", &item.title)]) } else { "Tâche supprimée.".into() })
             }
             "track-start" => {
                 self.db()?.start_tracking(&item.data, now).map_err(|e| e.to_string())?;
-                msg(format!("Suivi démarré : {}", item.data))
+                msg(tf("Suivi démarré : {l}", &[("l", &item.data)]))
             }
             "track-stop" => match self.db()?.stop_tracking(now).map_err(|e| e.to_string())? {
-                Some(e) => msg(format!("Suivi arrêté : {}, {}", e.label, human(now - e.start))),
+                Some(e) => msg(tf("Suivi arrêté : {l}, {d}", &[("l", &e.label), ("d", &human(now - e.start))])),
                 None => msg("Aucun suivi en cours.".into()),
             },
             "track-export" => {
                 let entries = self.db()?.entries_since(0).map_err(|e| e.to_string())?;
                 let path = downloads().join(format!("landry-suivi-{}.csv", Local::now().format("%Y-%m-%d")));
                 std::fs::write(&path, tracking_csv(&entries, now)).map_err(|e| format!("{}: {e}", path.display()))?;
-                msg(format!("Exporté : {}", path.display()))
+                msg(tf("Exporté : {p}", &[("p", &path.display())]))
             }
             "note-new" => {
                 let id = self.db()?.save_note(0, &item.data).map_err(|e| e.to_string())?;
@@ -300,7 +300,7 @@ impl Engine {
             "note-open" => Ok(Outcome::View(format!("notes:{}", item.data))),
             "notes-view" => Ok(Outcome::View("notes".into())),
             "" => Err(item.subtitle.clone()),
-            a => Err(format!("action inconnue : {a}")),
+            a => Err(tf("action inconnue : {a}", &[("a", &a)])),
         }
     }
 
@@ -332,40 +332,41 @@ impl Engine {
 
     /// Advance timers and collect due reminders. Returns notifications (title, body).
     pub fn tick(&mut self, now: i64) -> Vec<(String, String)> {
-        let mut out = Vec::new();
+        let mut out: Vec<(String, String)> = Vec::new();
         let mut keep = Vec::new();
         let mut changed = false;
-        for mut t in std::mem::take(&mut self.timers) {
-            let done = t.length > 0 && now - t.start >= t.length;
-            match (&t.kind, done) {
+        for mut tm in std::mem::take(&mut self.timers) {
+            let done = tm.length > 0 && now - tm.start >= tm.length;
+            match (&tm.kind, done) {
                 (TimerKind::Countdown, true) => {
                     changed = true;
-                    out.push(("Minuteur terminé".into(), if t.label.is_empty() { human(t.length) } else { t.label.clone() }));
+                    out.push(("Minuteur terminé".into(), if tm.label.is_empty() { human(tm.length) } else { tm.label.clone() }));
                     continue;
                 }
                 (TimerKind::Pomodoro { focus, round }, true) => {
                     changed = true;
                     let (focus, round) = (!*focus, if *focus { round + 1 } else { *round });
                     out.push(if focus {
-                        ("Pomodoro : au travail".into(), format!("Session {} : 25 minutes", round + 1))
+                        ("Pomodoro : au travail".into(), tf("Session {n} : 25 minutes", &[("n", &(round + 1))]))
                     } else {
-                        ("Pomodoro : pause".into(), format!("{round} session{} terminée{}, 5 minutes de pause", if round > 1 { "s" } else { "" }, if round > 1 { "s" } else { "" }))
+                        ("Pomodoro : pause".into(), if round > 1 { tf("{n} sessions terminées, 5 minutes de pause", &[("n", &round)]) } else { t("1 session terminée, 5 minutes de pause") })
                     });
-                    t.kind = TimerKind::Pomodoro { focus, round };
-                    t.start = now;
-                    t.length = if focus { FOCUS } else { BREAK };
+                    tm.kind = TimerKind::Pomodoro { focus, round };
+                    tm.start = now;
+                    tm.length = if focus { FOCUS } else { BREAK };
                 }
                 _ => {}
             }
-            keep.push(t);
+            keep.push(tm);
         }
         self.timers = keep;
         if changed {
             self.persist_timers();
         }
+        let mut out: Vec<(String, String)> = out.into_iter().map(|(a, b)| (t(&a), b)).collect();
         if let Some(db) = self.db_ref() {
             for task in db.take_due_reminders(now).unwrap_or_default() {
-                out.push(("Rappel".into(), task.text));
+                out.push((t("Rappel"), task.text));
             }
         }
         out

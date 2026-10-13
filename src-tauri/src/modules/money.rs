@@ -2,6 +2,7 @@
 //! Every rate comes from settings.json; none is hardcoded here.
 
 use crate::config::Settings;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 
 /// "1234.5" -> "1 234,50 €" (narrow no-break space as thousands separator).
@@ -62,11 +63,11 @@ pub fn query(settings: &Settings, q: &str) -> Vec<Item> {
             let t = settings.vat_rate / 100.0;
             let (ht, ttc) = if is_ht { (amount, amount * (1.0 + t)) } else { (amount / (1.0 + t), amount) };
             let tva = ttc - ht;
-            let sub = format!("TVA {} : {}", rate(settings.vat_rate), euros(tva));
+            let sub = tf("TVA {r} : {v}", &[("r", &rate(settings.vat_rate)), ("v", &euros(tva))]);
             return if is_ht {
-                vec![item("ttc", format!("{} TTC", euros(ttc)), format!("{} HT · {sub}", euros(ht)), plain(ttc))]
+                vec![item("ttc", tf("{v} TTC", &[("v", &euros(ttc))]), format!("{} · {sub}", tf("{v} HT", &[("v", &euros(ht))])), plain(ttc))]
             } else {
-                vec![item("ht", format!("{} HT", euros(ht)), format!("{} TTC · {sub}", euros(ttc)), plain(ht))]
+                vec![item("ht", tf("{v} HT", &[("v", &euros(ht))]), format!("{} · {sub}", tf("{v} TTC", &[("v", &euros(ttc))])), plain(ht))]
             };
         }
     }
@@ -78,8 +79,8 @@ pub fn query(settings: &Settings, q: &str) -> Vec<Item> {
             return vec![Item {
                 id: "money:norate".into(),
                 module: "calc".into(),
-                title: "Taux de cotisations non renseigné".into(),
-                subtitle: "Ajoute micro_rate (en %) dans Réglages, onglet Général".into(),
+                title: t("Taux de cotisations non renseigné"),
+                subtitle: t("Ajoute micro_rate (en %) dans Réglages, onglet Général"),
                 actions: vec![Action::new("settings", "Ouvrir les réglages")],
                 ..Default::default()
             }];
@@ -87,13 +88,13 @@ pub fn query(settings: &Settings, q: &str) -> Vec<Item> {
         let contrib = amount * r / 100.0;
         let tax = settings.micro_tax_rate.map(|t| amount * t / 100.0).unwrap_or(0.0);
         let net = amount - contrib - tax;
-        let mut sub = format!("CA {} · cotisations {}", euros(amount), rate(r));
+        let mut sub = tf("CA {a} · cotisations {r}", &[("a", &euros(amount)), ("r", &rate(r))]);
         if let Some(t) = settings.micro_tax_rate {
-            sub.push_str(&format!(" · versement libératoire {} : {}", rate(t), euros(tax)));
+            sub.push_str(&format!(" · {}", tf("versement libératoire {r} : {v}", &[("r", &rate(t)), ("v", &euros(tax))])));
         }
         return vec![
-            item("contrib", format!("{} de cotisations", euros(contrib)), sub.clone(), plain(contrib)),
-            item("net", format!("{} restants", euros(net)), sub, plain(net)),
+            item("contrib", tf("{v} de cotisations", &[("v", &euros(contrib))]), sub.clone(), plain(contrib)),
+            item("net", tf("{v} restants", &[("v", &euros(net))]), sub, plain(net)),
         ];
     }
     vec![]

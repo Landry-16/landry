@@ -1,6 +1,7 @@
 //! Time zones ("15h Paris en New York", "heure à Tokyo"), relative dates ("dans 3 semaines")
 //! and day counts ("jours ouvrés entre 01/10/2026 et 24/12/2026", French public holidays).
 
+use crate::i18n::{t, tf};
 use crate::search::{fold, Action, Item};
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Weekday};
 use chrono_tz::Tz;
@@ -32,6 +33,9 @@ const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "sa
 const MOIS: [&str; 12] = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
 pub fn long_date(d: NaiveDate) -> String {
+    if crate::i18n::english() {
+        return d.format("%A %-d %B %Y").to_string();
+    }
     format!("{} {} {} {}", JOURS[d.weekday().num_days_from_monday() as usize], d.day(), MOIS[d.month0() as usize], d.year())
 }
 
@@ -72,8 +76,8 @@ pub fn parse_time(s: &str) -> Option<NaiveTime> {
 fn day_shift(from: NaiveDate, to: NaiveDate) -> &'static str {
     match (to - from).num_days() {
         0 => "",
-        1 => " (lendemain)",
-        -1 => " (veille)",
+        1 => "lendemain",
+        -1 => "veille",
         _ => "",
     }
 }
@@ -97,7 +101,7 @@ fn timezones(q: &str) -> Option<Item> {
     if let Some(city) = f.strip_prefix("heure").map(|r| r.trim().trim_start_matches("a ").trim_start_matches("en ").trim()) {
         let tz = zone(city)?;
         let now = chrono::Utc::now().with_timezone(&tz);
-        return Some(result("now", format!("{} à {}", now.format("%H:%M"), title_case(city)), long_date(now.date_naive())));
+        return Some(result("now", tf("{h} à {c}", &[("h", &now.format("%H:%M")), ("c", &title_case(city))]), long_date(now.date_naive())));
     }
     let re = regex::Regex::new(r"^(.+?)\s+(?:en|a|in|to|vers)\s+(.+)$").ok()?;
     let c = re.captures(f)?;
@@ -117,8 +121,16 @@ fn timezones(q: &str) -> Option<Item> {
     let there = from_dt.with_timezone(&to);
     Some(result(
         "tz",
-        format!("{} à {}{}", there.format("%H:%M"), title_case(target), day_shift(from_dt.date_naive(), there.date_naive())),
-        format!("{} {}, {}", from_dt.format("%H:%M"), if from_label == "ici" { "ici".into() } else { format!("à {from_label}") }, long_date(from_dt.date_naive())),
+        {
+            let shift = day_shift(from_dt.date_naive(), there.date_naive());
+            let base = tf("{h} à {c}", &[("h", &there.format("%H:%M")), ("c", &title_case(target))]);
+            if shift.is_empty() { base } else { format!("{base} ({})", t(shift)) }
+        },
+        if from_label == "ici" {
+            tf("{h} ici, {d}", &[("h", &from_dt.format("%H:%M")), ("d", &long_date(from_dt.date_naive()))])
+        } else {
+            tf("{h} à {c}, {d}", &[("h", &from_dt.format("%H:%M")), ("c", &from_label), ("d", &long_date(from_dt.date_naive()))])
+        },
     ))
 }
 
@@ -211,11 +223,11 @@ fn day_counts(q: &str, today: NaiveDate) -> Option<Item> {
     let (a, b) = (parse_date(&c[2], today)?, parse_date(&c[3], today)?);
     if c.get(1).is_some() {
         let n = business_days(a, b);
-        let label = if n == 1 { "1 jour ouvré".to_string() } else { format!("{n} jours ouvrés") };
-        Some(result("work", label, format!("du {} au {}, week-ends et fériés exclus", long_date(a.min(b)), long_date(a.max(b)))))
+        let label = if n == 1 { t("1 jour ouvré") } else { tf("{n} jours ouvrés", &[("n", &n)]) };
+        Some(result("work", label, tf("du {a} au {b}, week-ends et fériés exclus", &[("a", &long_date(a.min(b))), ("b", &long_date(a.max(b)))])))
     } else {
         let n = (b - a).num_days().abs();
-        Some(result("days", format!("{n} jours"), format!("entre le {} et le {}", long_date(a.min(b)), long_date(a.max(b)))))
+        Some(result("days", tf("{n} jours", &[("n", &n)]), tf("entre le {a} et le {b}", &[("a", &long_date(a.min(b))), ("b", &long_date(a.max(b)))])))
     }
 }
 

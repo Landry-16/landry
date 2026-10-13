@@ -3,6 +3,7 @@
 
 use crate::config::Settings;
 use crate::engine::Outcome;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use crate::util;
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ pub const ACCOUNTS: &[(&str, &str)] = &[("github", "GitHub"), ("vercel", "Vercel
 // ---------- Secrets ----------
 
 fn entry(account: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new(SERVICE, account).map_err(|e| format!("trousseau indisponible : {e}"))
+    keyring::Entry::new(SERVICE, account).map_err(|e| tf("trousseau indisponible : {e}", &[("e", &e)]))
 }
 
 pub fn token(account: &str) -> Option<String> {
@@ -26,13 +27,13 @@ pub fn token(account: &str) -> Option<String> {
 
 pub fn set_token(account: &str, token: &str) -> Result<(), String> {
     if !ACCOUNTS.iter().any(|(a, _)| *a == account) {
-        return Err(format!("compte inconnu : {account}"));
+        return Err(tf("compte inconnu : {a}", &[("a", &account)]));
     }
     let e = entry(account)?;
     let t = token.trim();
     let r = if t.is_empty() { e.delete_credential() } else { e.set_password(t) };
     clear_cache();
-    r.map_err(|e| format!("trousseau : {e}"))
+    r.map_err(|e| tf("trousseau : {e}", &[("e", &e)]))
 }
 
 // ---------- Background fetch with cache ----------
@@ -65,14 +66,15 @@ fn clear_cache() {
     cache().lock().unwrap_or_else(|e| e.into_inner()).clear();
 }
 
+/// Title and subtitle are French keys, translated here.
 fn info(key: &str, title: &str, subtitle: &str) -> Item {
-    Item { id: format!("cloud:{}", key.replace('\t', ":")), module: "cloud".into(), title: title.into(), subtitle: subtitle.into(), ..Default::default() }
+    Item { id: format!("cloud:{}", key.replace('\t', ":")), module: "cloud".into(), title: t(title), subtitle: t(subtitle), ..Default::default() }
 }
 
 fn missing_token(name: &str) -> Item {
     Item {
         actions: vec![Action::new("settings", "Ouvrir les réglages")],
-        ..info(&format!("{name}:token"), &format!("Jeton {name} manquant"), "Réglages Landry, section Comptes")
+        ..info(&format!("{name}:token"), &tf("Jeton {name} manquant", &[("name", &name)]), "Réglages Landry, section Comptes")
     }
 }
 
@@ -127,12 +129,12 @@ fn check(r: reqwest::blocking::Response) -> Result<serde_json::Value, String> {
 
 const PR_QUERY: &str = "query { viewer { pullRequests(first: 20, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { title number url isDraft repository { nameWithOwner } commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } } }";
 
-fn ci_label(state: Option<&str>) -> &'static str {
+fn ci_label(state: Option<&str>) -> String {
     match state {
-        Some("SUCCESS") => "CI réussie",
-        Some("FAILURE") | Some("ERROR") => "CI en échec",
-        Some("PENDING") | Some("EXPECTED") => "CI en cours",
-        _ => "sans CI",
+        Some("SUCCESS") => t("CI réussie"),
+        Some("FAILURE") | Some("ERROR") => t("CI en échec"),
+        Some("PENDING") | Some("EXPECTED") => t("CI en cours"),
+        _ => t("sans CI"),
     }
 }
 
@@ -146,7 +148,7 @@ pub fn parse_prs(v: &serde_json::Value) -> Vec<Item> {
                     let url = n.get("url")?.as_str()?.to_string();
                     let repo = n.pointer("/repository/nameWithOwner").and_then(|r| r.as_str()).unwrap_or("");
                     let ci = n.pointer("/commits/nodes/0/commit/statusCheckRollup/state").and_then(|s| s.as_str());
-                    let draft = if n.get("isDraft").and_then(|d| d.as_bool()) == Some(true) { " · brouillon" } else { "" };
+                    let draft = if n.get("isDraft").and_then(|d| d.as_bool()) == Some(true) { format!(" · {}", t("brouillon")) } else { String::new() };
                     Some(Item {
                         id: format!("gh:{url}"),
                         module: "cloud".into(),
@@ -184,7 +186,7 @@ pub fn parse_issues(v: &serde_json::Value) -> Vec<Item> {
                         id: format!("gh:{url}"),
                         module: "cloud".into(),
                         title: i.get("title")?.as_str()?.to_string(),
-                        subtitle: format!("{repo}#{} · issue assignée", i.get("number")?.as_u64()?),
+                        subtitle: format!("{repo}#{} · {}", i.get("number")?.as_u64()?, t("issue assignée")),
                         keywords: vec![repo, "issue".into()],
                         actions: vec![Action::new("open", "Ouvrir sur GitHub"), Action::new("copy", "Copier le lien")],
                         data: url,
@@ -215,20 +217,20 @@ fn github_issues(_: &Settings, _: &str) -> Result<Vec<Item>, String> {
 fn ago(ms: i64) -> String {
     let mins = (chrono::Utc::now().timestamp_millis() - ms).max(0) / 60_000;
     match mins {
-        0 => "à l'instant".into(),
-        m if m < 60 => format!("il y a {m} min"),
-        m if m < 60 * 24 => format!("il y a {} h", m / 60),
-        m => format!("il y a {} j", m / (60 * 24)),
+        0 => t("à l'instant"),
+        m if m < 60 => tf("il y a {n} min", &[("n", &m)]),
+        m if m < 60 * 24 => tf("il y a {n} h", &[("n", &(m / 60))]),
+        m => tf("il y a {n} j", &[("n", &(m / (60 * 24)))]),
     }
 }
 
-fn state_label(s: &str) -> &str {
+fn state_label(s: &str) -> String {
     match s {
-        "READY" => "en ligne",
-        "ERROR" => "en erreur",
-        "BUILDING" | "INITIALIZING" | "QUEUED" => "en cours",
-        "CANCELED" => "annulé",
-        other => other,
+        "READY" => t("en ligne"),
+        "ERROR" => t("en erreur"),
+        "BUILDING" | "INITIALIZING" | "QUEUED" => t("en cours"),
+        "CANCELED" => t("annulé"),
+        other => other.to_string(),
     }
 }
 
@@ -280,7 +282,7 @@ fn vercel_deployments(settings: &Settings, _: &str) -> Result<Vec<Item>, String>
 }
 
 fn redeploy(settings: &Settings, uid: &str, name: &str) -> Result<String, String> {
-    let t = token("vercel").ok_or("jeton Vercel manquant")?;
+    let t = token("vercel").ok_or_else(|| t("jeton Vercel manquant"))?;
     let body = serde_json::json!({ "name": name, "deploymentId": uid });
     let v = check(
         client()?
@@ -327,14 +329,14 @@ pub fn run(settings: &Settings, item: &Item, action: &str) -> Result<Outcome, St
         ("vercel", "logs") => {
             let url = field(3);
             if url.is_empty() {
-                return Err("pas de lien vers les logs".into());
+                return Err(t("pas de lien vers les logs"));
             }
             util::open(&url)?;
             Outcome::Hide
         }
-        ("vercel", "redeploy") => Outcome::Message(format!("Redéploiement lancé : {}", redeploy(settings, &field(0), &field(1))?)),
+        ("vercel", "redeploy") => Outcome::Message(tf("Redéploiement lancé : {u}", &[("u", &redeploy(settings, &field(0), &field(1))?)])),
         (_, "") => return Err(item.subtitle.clone()),
-        (_, a) => return Err(format!("action inconnue : {a}")),
+        (_, a) => return Err(tf("action inconnue : {a}", &[("a", &a)])),
     })
 }
 

@@ -1,5 +1,6 @@
 //! Calculator and unit conversions (fend), currencies from the ECB daily rates (cached).
 
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -87,7 +88,7 @@ impl fend_core::ExchangeRateFnV2 for Ecb {
         let rate = guard
             .as_ref()
             .and_then(|r| r.per_eur.get(currency))
-            .ok_or_else(|| format!("taux {currency} indisponible (hors ligne et pas de cache)"))?;
+            .ok_or_else(|| tf("taux {c} indisponible (hors ligne et pas de cache)", &[("c", &currency)]))?;
         Ok(*rate)
     }
 }
@@ -163,8 +164,8 @@ pub fn query(q: &str) -> Vec<Item> {
     let rates = RATES.read().unwrap_or_else(|e| e.into_inner()).as_ref().map(|r| r.date.clone());
     let currency = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD"].iter().any(|c| normalize(q).to_uppercase().contains(c));
     let subtitle = match (currency, rates) {
-        (true, Some(d)) => format!("Taux BCE du {d} · Entrée pour copier"),
-        _ => "Calcul · Entrée pour copier".to_string(),
+        (true, Some(d)) => tf("Taux BCE du {d} · Entrée pour copier", &[("d", &d)]),
+        _ => t("Calcul · Entrée pour copier"),
     };
     vec![Item {
         id: "calc:result".into(),

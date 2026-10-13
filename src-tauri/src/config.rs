@@ -1,6 +1,7 @@
 //! Settings (global) and presets (look and layout of the bar).
 //! Nothing visual is hardcoded elsewhere: the frontend renders whatever the active preset says.
 
+use crate::i18n::{t, tf};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -237,10 +238,10 @@ fn is_hex_color(s: &str) -> bool {
 pub fn validate_name(name: &str) -> Result<(), String> {
     let n = name.trim();
     if n.is_empty() || n.chars().count() > 40 {
-        return Err("le nom doit faire entre 1 et 40 caractères".into());
+        return Err(t("le nom doit faire entre 1 et 40 caractères"));
     }
     if n.chars().any(|c| c.is_control() || c == '/' || c == '\\') {
-        return Err("le nom contient un caractère interdit".into());
+        return Err(t("le nom contient un caractère interdit"));
     }
     Ok(())
 }
@@ -249,7 +250,7 @@ impl Preset {
     pub fn validate(&self) -> Result<(), String> {
         let mut errs = Vec::new();
         if self.version > SCHEMA_VERSION {
-            errs.push(format!("version {} plus récente que celle de Landry ({SCHEMA_VERSION})", self.version));
+            errs.push(tf("version {v} plus récente que celle de Landry ({s})", &[("v", &self.version), ("s", &SCHEMA_VERSION)]));
         }
         if let Err(e) = validate_name(&self.name) {
             errs.push(e);
@@ -264,12 +265,12 @@ impl Preset {
                 ("border", &c.border),
             ] {
                 if !is_hex_color(v) {
-                    errs.push(format!("{label}.{k} : couleur invalide « {v} » (attendu #RRGGBB)"));
+                    errs.push(tf("{f} : couleur invalide « {v} » (attendu #RRGGBB)", &[("f", &format!("{label}.{k}")), ("v", &v)]));
                 }
             }
         }
         if self.font.family.trim().is_empty() || self.font.family.contains([';', '{', '}']) {
-            errs.push("font.family invalide".into());
+            errs.push(t("font.family invalide"));
         }
         let ranges: [(&str, i64, i64, i64); 9] = [
             ("font.size", self.font.size as i64, 8, 48),
@@ -284,11 +285,11 @@ impl Preset {
         ];
         for (k, v, lo, hi) in ranges {
             if v < lo || v > hi {
-                errs.push(format!("{k} = {v} hors limites ({lo} à {hi})"));
+                errs.push(tf("{k} = {v} hors limites ({lo} à {hi})", &[("k", &k), ("v", &v), ("lo", &lo), ("hi", &hi)]));
             }
         }
         if !(0.2..=1.0).contains(&self.opacity) {
-            errs.push(format!("opacity = {} hors limites (0.2 à 1)", self.opacity));
+            errs.push(tf("opacity = {v} hors limites (0.2 à 1)", &[("v", &self.opacity)]));
         }
         if errs.is_empty() {
             Ok(())
@@ -310,7 +311,7 @@ impl Preset {
     }
 
     pub fn parse(json: &str) -> Result<Preset, String> {
-        let mut p: Preset = serde_json::from_str(json).map_err(|e| format!("JSON invalide : {e}"))?;
+        let mut p: Preset = serde_json::from_str(json).map_err(|e| tf("JSON invalide : {e}", &[("e", &e)]))?;
         p.name = p.name.trim().to_string();
         p.validate()?;
         // Older schema versions would be migrated here.
@@ -444,7 +445,7 @@ impl Store {
             Err(_) => (Settings::default(), None),
             Ok(s) => match serde_json::from_str::<Settings>(&s) {
                 Ok(v) => (v, None),
-                Err(e) => (Settings::default(), Some(format!("settings.json invalide, réglages par défaut utilisés : {e}"))),
+                Err(e) => (Settings::default(), Some(tf("settings.json invalide, réglages par défaut utilisés : {e}", &[("e", &e)]))),
             },
         }
     }
@@ -502,7 +503,7 @@ impl Store {
         if name == DEFAULT_NAME {
             return Ok(Preset::default());
         }
-        let path = self.find_file(name).ok_or_else(|| format!("preset « {name} » introuvable"))?;
+        let path = self.find_file(name).ok_or_else(|| tf("preset « {n} » introuvable", &[("n", &name)]))?;
         let s = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
         Preset::parse(&s)
     }
@@ -514,7 +515,7 @@ impl Store {
             Ok(p) => (p, warn),
             Err(e) => (
                 Preset::default(),
-                Some(format!("Preset « {} » inutilisable ({e}). Retour au preset {DEFAULT_NAME}.", settings.active_preset)),
+                Some(tf("Preset « {n} » inutilisable ({e}). Retour au preset {d}.", &[("n", &settings.active_preset), ("e", &e), ("d", &DEFAULT_NAME)])),
             ),
         }
     }
@@ -549,11 +550,11 @@ impl Store {
         p.version = SCHEMA_VERSION;
         p.validate()?;
         if p.name == DEFAULT_NAME || previous == Some(DEFAULT_NAME) {
-            return Err(format!("le preset {DEFAULT_NAME} est intégré : duplique-le pour le modifier"));
+            return Err(tf("le preset {d} est intégré : duplique-le pour le modifier", &[("d", &DEFAULT_NAME)]));
         }
         let renaming = previous.is_some_and(|old| old != p.name);
         if (renaming || previous.is_none()) && self.find_file(&p.name).is_some() {
-            return Err(format!("un preset « {} » existe déjà", p.name));
+            return Err(tf("un preset « {n} » existe déjà", &[("n", &p.name)]));
         }
         let old_path = previous.and_then(|old| self.find_file(old));
         if renaming {
@@ -581,9 +582,9 @@ impl Store {
 
     pub fn delete(&self, name: &str) -> Result<(), String> {
         if name == DEFAULT_NAME {
-            return Err(format!("le preset {DEFAULT_NAME} ne peut pas être supprimé"));
+            return Err(tf("le preset {d} ne peut pas être supprimé", &[("d", &DEFAULT_NAME)]));
         }
-        let path = self.find_file(name).ok_or_else(|| format!("preset « {name} » introuvable"))?;
+        let path = self.find_file(name).ok_or_else(|| tf("preset « {n} » introuvable", &[("n", &name)]))?;
         std::fs::remove_file(path).map_err(|e| e.to_string())?;
         let (mut s, _) = self.settings();
         if s.active_preset == name {

@@ -1,5 +1,6 @@
 //! Transformations of the selected text (or of the text typed after the keyword).
 
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 
 const SMALL_WORDS: &[&str] = &["de", "du", "des", "la", "le", "les", "l", "d", "et", "en", "à", "au", "aux", "un", "une", "pour", "par", "sur", "ou", "of", "the", "and", "a", "an", "in", "on"];
@@ -71,7 +72,11 @@ pub fn stats(s: &str) -> String {
     let words = s.split_whitespace().count();
     let chars = s.chars().count();
     let lines = if s.is_empty() { 0 } else { s.lines().count() };
-    format!("{words} mot{}, {chars} caractère{}, {lines} ligne{}", plural(words), plural(chars), plural(lines))
+    if crate::i18n::english() {
+        format!("{words} word{}, {chars} character{}, {lines} line{}", plural(words), plural(chars), plural(lines))
+    } else {
+        format!("{words} mot{}, {chars} caractère{}, {lines} ligne{}", plural(words), plural(chars), plural(lines))
+    }
 }
 
 fn plural(n: usize) -> &'static str {
@@ -92,17 +97,17 @@ pub fn query(q: &str, selection: Option<&str>) -> Vec<Item> {
         _ => return vec![],
     };
     let (kind, label, out) = match crate::search::fold(word).as_str() {
-        "maj" | "majuscules" | "upper" => ("upper", "En majuscules", source.to_uppercase()),
-        "min" | "minuscules" | "lower" => ("lower", "En minuscules", source.to_lowercase()),
-        "titre" | "title" => ("title", "Casse de titre", title_case(&source)),
-        "brut" | "plain" => ("plain", "Sans mise en forme", source.clone()),
-        "typo" | "insecables" => ("typo", "Typographie française", french_typography(&source)),
+        "maj" | "majuscules" | "upper" => ("upper", t("En majuscules"), source.to_uppercase()),
+        "min" | "minuscules" | "lower" => ("lower", t("En minuscules"), source.to_lowercase()),
+        "titre" | "title" => ("title", t("Casse de titre"), title_case(&source)),
+        "brut" | "plain" => ("plain", t("Sans mise en forme"), source.clone()),
+        "typo" | "insecables" => ("typo", t("Typographie française"), french_typography(&source)),
         "mots" | "compter" | "count" => {
             return vec![Item {
                 id: "text:count".into(),
                 module: "text".into(),
                 title: stats(&source),
-                subtitle: format!("{} : « {} »", if from_selection { "Sélection" } else { "Texte" }, preview(&source)),
+                subtitle: tf("{what} : « {text} »", &[("what", &if from_selection { t("Sélection") } else { t("Texte") }), ("text", &preview(&source))]),
                 actions: vec![Action::new("copy", "Copier")],
                 data: stats(&source),
                 ..Default::default()
@@ -119,7 +124,7 @@ pub fn query(q: &str, selection: Option<&str>) -> Vec<Item> {
         id: format!("text:{kind}"),
         module: "text".into(),
         title: preview(&out),
-        subtitle: format!("{label}{}", if from_selection { " · appliqué à la sélection" } else { "" }),
+        subtitle: if from_selection { tf("{label} · appliqué à la sélection", &[("label", &label)]) } else { label },
         actions,
         data: out,
         ..Default::default()

@@ -45,7 +45,7 @@ pub fn template(tpl: &str, vars: &[(&str, &str)]) -> Vec<String> {
 
 pub fn run_template(tpl: &str, vars: &[(&str, &str)], cwd: Option<&Path>) -> Result<(), String> {
     let argv = template(tpl, vars);
-    let (program, args) = argv.split_first().ok_or("commande vide")?;
+    let (program, args) = argv.split_first().ok_or_else(|| crate::i18n::t("commande vide"))?;
     spawn(program, args, cwd)
 }
 

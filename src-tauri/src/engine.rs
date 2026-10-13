@@ -324,20 +324,20 @@ impl Engine {
     }
 
     pub fn snippets(&self) -> Result<Vec<usage::Snippet>, String> {
-        self.db.as_ref().ok_or("base de données indisponible")?.snippets().map_err(|e| e.to_string())
+        self.db.as_ref().ok_or_else(|| crate::i18n::t("base de données indisponible"))?.snippets().map_err(|e| e.to_string())
     }
 
     pub fn save_snippet(&mut self, s: &usage::Snippet) -> Result<i64, String> {
         if s.name.trim().is_empty() || s.body.is_empty() {
             return Err(t("un extrait a besoin d'un nom et d'un texte"));
         }
-        let id = self.db.as_ref().ok_or("base de données indisponible")?.save_snippet(s).map_err(|e| e.to_string())?;
+        let id = self.db.as_ref().ok_or_else(|| crate::i18n::t("base de données indisponible"))?.save_snippet(s).map_err(|e| e.to_string())?;
         self.reload_snippets();
         Ok(id)
     }
 
     pub fn delete_snippet(&mut self, id: i64) -> Result<(), String> {
-        self.db.as_ref().ok_or("base de données indisponible")?.delete_snippet(id).map_err(|e| e.to_string())?;
+        self.db.as_ref().ok_or_else(|| crate::i18n::t("base de données indisponible"))?.delete_snippet(id).map_err(|e| e.to_string())?;
         self.reload_snippets();
         Ok(())
     }

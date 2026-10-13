@@ -17,6 +17,7 @@ pub mod web;
 
 use crate::config::Settings;
 use crate::engine::Outcome;
+use crate::i18n::tf;
 use crate::search::{Action, Item};
 use crate::util;
 use serde::Serialize;
@@ -88,7 +89,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
                 util::open(std::path::Path::new(&item.data).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default().as_str())?;
                 Ok(Outcome::Hide)
             }
-            _ => Err(format!("action inconnue : {action}")),
+            _ => Err(tf("action inconnue : {a}", &[("a", &action)])),
         },
         "files" => files::run(settings, item, action, arg),
         "projects" => projects::run(settings, item, action, arg),
@@ -99,7 +100,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "text" => match action {
             "paste" => Ok(Outcome::Paste { text: item.data.clone(), back: 0 }),
             "copy" => Ok(Outcome::Copy(item.data.clone())),
-            _ => Err(format!("action inconnue : {action}")),
+            _ => Err(tf("action inconnue : {a}", &[("a", &action)])),
         },
         "calc" => match action {
             "copy" => Ok(Outcome::Copy(item.data.clone())),
@@ -119,12 +120,12 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
                 let dir = if dir.is_empty() { crate::paths::expand("~") } else { std::path::PathBuf::from(dir) };
                 let path = dir.join(format!("qr-{}.svg", chrono::Local::now().format("%Y%m%d-%H%M%S")));
                 std::fs::write(&path, svg).map_err(|e| format!("{}: {e}", path.display()))?;
-                Ok(Outcome::Message(format!("QR code enregistré : {}", path.display())))
+                Ok(Outcome::Message(tf("QR code enregistré : {p}", &[("p", &path.display())])))
             }
             "" => Err(item.subtitle.clone()),
-            _ => Err(format!("action inconnue : {action}")),
+            _ => Err(tf("action inconnue : {a}", &[("a", &action)])),
         },
-        m => Err(format!("module inconnu : {m}")),
+        m => Err(tf("module inconnu : {m}", &[("m", &m)])),
     }
 }
 

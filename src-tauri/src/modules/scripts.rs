@@ -7,6 +7,7 @@
 //!   # @landry mode: silent                 (default: show the output in the bar)
 
 use crate::engine::Outcome;
+use crate::i18n::{t, tf};
 use crate::search::{Action, Item};
 use std::path::{Path, PathBuf};
 
@@ -75,7 +76,7 @@ pub fn scan() -> Vec<Item> {
                 id: format!("script:{}", p.display()),
                 module: "scripts".into(),
                 title: h.title.clone().unwrap_or(name.clone()),
-                subtitle: h.subtitle.clone().unwrap_or_else(|| format!("Script · {}", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())),
+                subtitle: h.subtitle.clone().unwrap_or_else(|| tf("Script · {f}", &[("f", &p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())])),
                 keywords: vec![name, "script".into()],
                 actions: vec![run, Action::new("edit", "Modifier le script"), Action::new("reveal", "Ouvrir le dossier des scripts")],
                 data: format!("{}\t{}", if h.silent { "silent" } else { "output" }, p.display()),
@@ -88,11 +89,11 @@ pub fn scan() -> Vec<Item> {
 }
 
 pub fn run(settings: &crate::config::Settings, item: &Item, action: &str, arg: &str) -> Result<Outcome, String> {
-    let (mode, path) = item.data.split_once('\t').ok_or("script invalide")?;
+    let (mode, path) = item.data.split_once('\t').ok_or_else(|| t("script invalide"))?;
     let path = PathBuf::from(path);
     match action {
         "run" => {
-            let (program, mut args) = command(&path).ok_or("type de script non pris en charge")?;
+            let (program, mut args) = command(&path).ok_or_else(|| t("type de script non pris en charge"))?;
             if !arg.is_empty() {
                 args.push(arg.to_string());
             }
@@ -106,7 +107,7 @@ pub fn run(settings: &crate::config::Settings, item: &Item, action: &str, arg: &
             crate::util::open(&dir().to_string_lossy())?;
             Ok(Outcome::Hide)
         }
-        a => Err(format!("action inconnue : {a}")),
+        a => Err(tf("action inconnue : {a}", &[("a", &a)])),
     }
 }
 

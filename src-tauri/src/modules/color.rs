@@ -172,7 +172,7 @@ pub fn wcag(ratio: f64) -> String {
             "échec"
         }
     };
-    format!("texte normal {}, grand texte {}", level(4.5, 7.0), level(3.0, 4.5))
+    crate::i18n::tf("texte normal {a}, grand texte {b}", &[("a", &crate::i18n::t(level(4.5, 7.0))), ("b", &crate::i18n::t(level(3.0, 4.5)))])
 }
 
 #[cfg(test)]
