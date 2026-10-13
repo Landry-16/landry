@@ -52,6 +52,10 @@ fn send(line: &str) -> std::io::Result<String> {
 }
 
 fn spawn_daemon() -> std::io::Result<()> {
+    // Started by systemd when the service is installed, so a crash is followed by a restart.
+    if crate::session::start_service() {
+        return Ok(());
+    }
     Command::new(std::env::current_exe()?)
         .arg("daemon")
         .stdin(Stdio::null())

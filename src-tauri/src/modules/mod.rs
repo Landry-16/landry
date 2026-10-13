@@ -86,6 +86,13 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
                 crate::apps::launch(std::path::Path::new(&item.data))?;
                 Ok(Outcome::Hide)
             }
+            "uninstall" => {
+                let path = std::path::Path::new(&item.data);
+                let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+                let (program, args) = crate::apps::uninstaller(path, &content, &crate::paths::expand("~")).ok_or_else(|| crate::i18n::t("cette application ne se désinstalle pas depuis Landry"))?;
+                // The applications watcher drops it from the index once removed.
+                Ok(Outcome::Run { program, args, label: tf("Désinstallation de {n}", &[("n", &item.title)]), silent: false, limit: 900 })
+            }
             "reveal" => {
                 util::open(std::path::Path::new(&item.data).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default().as_str())?;
                 Ok(Outcome::Hide)

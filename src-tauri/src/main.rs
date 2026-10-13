@@ -11,6 +11,7 @@ mod organizer;
 mod paste;
 mod paths;
 mod search;
+mod session;
 mod usage;
 mod util;
 
@@ -182,12 +183,12 @@ fn apply_outcome(app: &AppHandle, outcome: &Outcome) {
             let (h, kind) = (app.clone(), kind.clone());
             std::thread::spawn(move || capture(&h, &kind));
         }
-        Outcome::Run { program, args, label, silent } => {
+        Outcome::Run { program, args, label, silent, limit } => {
             if *silent {
                 hide_bar(app);
             }
-            let (h, program, args, label, silent) = (app.clone(), program.clone(), args.clone(), label.clone(), *silent);
-            std::thread::spawn(move || run_script(&h, &program, &args, &label, silent));
+            let (h, program, args, label, silent, limit) = (app.clone(), program.clone(), args.clone(), label.clone(), *silent, *limit);
+            std::thread::spawn(move || run_script(&h, &program, &args, &label, silent, limit));
         }
         // Shown or applied by the frontend.
         Outcome::Keep | Outcome::Message(_) | Outcome::Fill(_) | Outcome::View(_) | Outcome::Ask(_) => {}
@@ -224,7 +225,7 @@ fn set_clipboard(app: &AppHandle, text: String) {
 }
 
 /// Run a user script with a time limit; show its output in the bar (or a notification).
-fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, silent: bool) {
+fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, silent: bool, limit: u64) {
     use std::io::Read;
     let child = std::process::Command::new(program)
         .args(args)
@@ -241,7 +242,7 @@ fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, sile
     let status = loop {
         match child.try_wait() {
             Ok(Some(s)) => break Some(s),
-            Ok(None) if start.elapsed() > Duration::from_secs(60) => {
+            Ok(None) if start.elapsed() > Duration::from_secs(limit) => {
                 let _ = child.kill();
                 break None;
             }
@@ -258,7 +259,7 @@ fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, sile
         let _ = e.read_to_string(&mut err);
     }
     let text = match status {
-        None => tf("{l} : arrêté après 60 s", &[("l", &label)]),
+        None => tf("{l} : arrêté après {n} s", &[("l", &label), ("n", &limit)]),
         Some(s) if s.success() => {
             let o = out.trim();
             if o.is_empty() { tf("{l} : terminé", &[("l", &label)]) } else { o.chars().take(2000).collect() }
@@ -355,6 +356,11 @@ fn handle(app: &AppHandle, req: ipc::Request) -> String {
             }
         }
         ["show"] => show_bar(app, req.token),
+        ["setup"] => {
+            let r = show_bar(app, req.token);
+            let _ = app.emit("landry://view", "setup");
+            r
+        }
         ["hide"] => {
             hide_bar(app);
             "ok hidden".into()
@@ -425,7 +431,7 @@ fn handle(app: &AppHandle, req: ipc::Request) -> String {
             }
         }
         _ => format!(
-            "err commande inconnue : {}. Commandes : toggle, show, hide, search <texte>, run <texte>, preset list, preset show <nom>, preset use <nom>, reload, quit",
+            "err commande inconnue : {}. Commandes : toggle, show, hide, setup, search <texte>, run <texte>, preset list, preset show <nom>, preset use <nom>, reload, quit",
             req.args.join(" ")
         ),
     }
@@ -440,6 +446,8 @@ struct UiState {
     history: Vec<String>,
     system_dark: bool,
     locale: String,
+    /// The first-run assistant has never been closed.
+    first_run: bool,
 }
 
 #[tauri::command]
@@ -451,6 +459,7 @@ fn ui_state(state: State<EngineState>) -> UiState {
         history: e.history(),
         system_dark: SYSTEM_DARK.load(Ordering::Relaxed),
         locale: e.settings.locale.clone(),
+        first_run: session::first_run(),
     }
 }
 
@@ -606,34 +615,40 @@ fn backup_import(app: AppHandle, path: String) -> Result<String, String> {
     Ok(msg)
 }
 
-fn autostart_file() -> PathBuf {
-    paths::expand("~/.config/autostart/landry.desktop")
-}
-
 #[tauri::command]
 fn autostart_get() -> bool {
-    autostart_file().exists()
+    session::autostart()
 }
 
-/// Start the resident process with the session (XDG autostart entry).
+/// Start the resident process with the session (systemd user service, restarted after a crash).
 #[tauri::command]
 fn autostart_set(on: bool) -> Result<(), String> {
-    let path = autostart_file();
-    if !on {
-        return match std::fs::remove_file(&path) {
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
-            _ => Ok(()),
-        };
-    }
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let entry = format!(
-        "[Desktop Entry]\nType=Application\nName=Landry\nComment=Compagnon du quotidien\nExec=\"{}\" daemon\nIcon=landry\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
-        exe.display()
-    );
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&path, entry).map_err(|e| e.to_string())
+    session::set_autostart(on)
+}
+
+#[derive(Serialize)]
+struct SetupState {
+    shortcut: Option<String>,
+    autostart: bool,
+    /// Optional tools that are missing, with the command that installs them.
+    missing: Vec<(String, String)>,
+}
+
+/// Everything the first-run assistant shows. Runs the doctor checks: call it off the UI thread.
+#[tauri::command]
+async fn setup_state() -> SetupState {
+    let missing = doctor::checks().into_iter().filter(|c| !c.ok && c.hint.starts_with("sudo ")).map(|c| (c.label, c.hint)).collect();
+    SetupState { shortcut: session::shortcut(), autostart: session::autostart(), missing }
+}
+
+#[tauri::command]
+fn shortcut_set(accel: String) -> Result<(), String> {
+    session::set_shortcut(&accel)
+}
+
+#[tauri::command]
+fn setup_done() -> Result<(), String> {
+    session::mark_done()
 }
 
 #[tauri::command]
@@ -937,7 +952,8 @@ fn daemon() {
         Ok(l) => l,
         Err(e) => {
             eprintln!("landry: {e}");
-            std::process::exit(1);
+            // Another daemon already answers: not a failure, so systemd does not restart us in a loop.
+            std::process::exit(if e.kind() == std::io::ErrorKind::AddrInUse { 0 } else { 1 });
         }
     };
     let db = match usage::Db::open(&paths::data_dir().join("landry.db")) {
@@ -967,6 +983,9 @@ fn daemon() {
             backup_export,
             autostart_get,
             autostart_set,
+            setup_state,
+            shortcut_set,
+            setup_done,
             backup_import,
             note_save,
             note_delete,
@@ -994,7 +1013,12 @@ fn daemon() {
             let h = app.handle().clone();
             std::thread::spawn(move || ipc::serve(listener, move |req| handle(&h, req)));
             let h = app.handle().clone();
-            std::thread::spawn(move || index_apps(&h));
+            std::thread::spawn(move || {
+                index_apps(&h);
+                // Installed or removed apps show up without restarting Landry.
+                let h2 = h.clone();
+                apps::watch(&paths::data_dirs(), move || index_apps(&h2));
+            });
             let h = app.handle().clone();
             std::thread::spawn(move || index_others(&h));
             let h = app.handle().clone();

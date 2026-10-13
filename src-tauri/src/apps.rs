@@ -15,6 +15,8 @@ pub struct App {
     /// Program name from Exec, e.g. "code".
     pub exec_name: String,
     pub icon: String,
+    /// Installed by Flatpak or Snap: Landry can uninstall it.
+    pub removable: bool,
 }
 
 /// Value of a localized key: `Key[fr_FR]`, then `Key[fr]`, then `Key`.
@@ -79,6 +81,7 @@ pub fn parse(id: &str, path: &Path, content: &str, lang: &str, desktop: &str) ->
         keywords,
         exec_name,
         icon: kv.get("Icon").cloned().unwrap_or_default(),
+        removable: kv.contains_key("X-Flatpak") || kv.contains_key("X-SnapInstanceName"),
     })
 }
 
@@ -123,6 +126,38 @@ pub fn scan(data_dirs: &[PathBuf]) -> Vec<App> {
     }
     apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     apps
+}
+
+/// Command removing the package behind a .desktop file, for Flatpak and Snap only (apt
+/// packages are left to the Software app). Polkit asks for the password when needed.
+pub fn uninstaller(path: &Path, content: &str, home: &Path) -> Option<(String, Vec<String>)> {
+    let key = |k: &str| content.lines().find_map(|l| l.trim().strip_prefix(k)?.strip_prefix('=').map(str::trim)).filter(|v| !v.is_empty() && !v.starts_with('-'));
+    if let Some(id) = key("X-Flatpak") {
+        let scope = if path.starts_with(home) { "--user" } else { "--system" };
+        return Some(("flatpak".into(), ["uninstall", "-y", "--noninteractive", scope, id].map(String::from).to_vec()));
+    }
+    key("X-SnapInstanceName").map(|name| ("pkexec".into(), ["snap", "remove", name].map(String::from).to_vec()))
+}
+
+/// Calls `on_change` once the applications folders have been quiet for 2 s after a change
+/// (install, removal, update). Only folders existing at startup are watched.
+pub fn watch(data_dirs: &[PathBuf], mut on_change: impl FnMut() + Send + 'static) {
+    use notify::{RecursiveMode, Watcher};
+    let (tx, rx) = std::sync::mpsc::channel();
+    let Ok(mut watcher) = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+        if res.is_ok_and(|e| !e.kind.is_access()) {
+            let _ = tx.send(());
+        }
+    }) else {
+        return;
+    };
+    for d in data_dirs.iter().map(|d| d.join("applications")).filter(|d| d.is_dir()) {
+        let _ = watcher.watch(&d, RecursiveMode::Recursive);
+    }
+    while rx.recv().is_ok() {
+        while rx.recv_timeout(std::time::Duration::from_secs(2)).is_ok() {}
+        on_change();
+    }
 }
 
 /// Launch through gio: it handles field codes, Terminal=true and D-Bus activation.
@@ -179,6 +214,22 @@ mod tests {
         assert!(parse("x", Path::new("/x"), &format!("{base}OnlyShowIn=GNOME;\n"), "C", "ubuntu:GNOME").is_some());
         assert!(parse("x", Path::new("/x"), &format!("{base}NotShowIn=GNOME;\n"), "C", "ubuntu:GNOME").is_none());
         assert!(parse("x", Path::new("/x"), "[Desktop Entry]\nType=Link\nName=X\nURL=y\n", "C", "").is_none());
+    }
+
+    #[test]
+    fn uninstall_only_flatpak_and_snap() {
+        let home = Path::new("/home/u");
+        let base = "[Desktop Entry]\nType=Application\nName=X\nExec=x\n";
+        let fp = format!("{base}X-Flatpak=org.gimp.GIMP\n");
+        assert!(parse("g", Path::new("/g"), &fp, "C", "").unwrap().removable);
+        let user = uninstaller(Path::new("/home/u/.local/share/flatpak/exports/share/applications/g.desktop"), &fp, home).unwrap();
+        assert_eq!(user, ("flatpak".into(), vec!["uninstall".into(), "-y".into(), "--noninteractive".into(), "--user".into(), "org.gimp.GIMP".into()]));
+        assert_eq!(uninstaller(Path::new("/var/lib/flatpak/x.desktop"), &fp, home).unwrap().1[3], "--system");
+        let snap = format!("{base}X-SnapInstanceName=firefox\n");
+        assert_eq!(uninstaller(Path::new("/var/lib/snapd/desktop/applications/firefox_firefox.desktop"), &snap, home).unwrap(), ("pkexec".into(), vec!["snap".into(), "remove".into(), "firefox".into()]));
+        assert!(uninstaller(Path::new("/usr/share/applications/x.desktop"), base, home).is_none());
+        assert!(!parse("x", Path::new("/x"), base, "C", "").unwrap().removable);
+        assert!(uninstaller(Path::new("/x"), &format!("{base}X-Flatpak=--help\n"), home).is_none(), "jamais une option");
     }
 
     #[test]

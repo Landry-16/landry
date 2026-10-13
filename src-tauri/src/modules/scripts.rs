@@ -97,7 +97,7 @@ pub fn run(settings: &crate::config::Settings, item: &Item, action: &str, arg: &
             if !arg.is_empty() {
                 args.push(arg.to_string());
             }
-            Ok(Outcome::Run { program, args, label: item.title.clone(), silent: mode == "silent" })
+            Ok(Outcome::Run { program, args, label: item.title.clone(), silent: mode == "silent", limit: 60 })
         }
         "edit" => {
             crate::util::run_template(&settings.editor, &[("path", &path.to_string_lossy())], None)?;

@@ -59,13 +59,13 @@ pub fn checks() -> Vec<Check> {
         check(
             "Raccourci GNOME vers landry toggle",
             keybindings.contains("/landry/") && shortcut_cmd.contains("toggle"),
-            "scripts/install-shortcut.sh /usr/bin/landry '<Control><Alt>space'",
+            "/bienvenue dans la barre, ou landry setup",
             false,
         ),
         check(
             "Démarrage avec la session",
-            crate::paths::expand("~/.config/autostart/landry.desktop").exists(),
-            "Réglages, onglet Général, « Démarrer Landry avec la session »",
+            crate::session::autostart(),
+            "/bienvenue dans la barre, ou Réglages, onglet Général",
             true,
         ),
         check("Portail Screenshot (pipette, capture)", portals.contains("org.freedesktop.portal.Screenshot"), "sudo apt install xdg-desktop-portal-gnome", true),

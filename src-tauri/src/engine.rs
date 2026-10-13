@@ -33,7 +33,15 @@ pub enum Outcome {
     /// Hide, take an interactive screenshot through the portal: "save" or "ocr".
     Capture(String),
     /// Run a user script outside the engine lock; its output is shown when it ends.
-    Run { program: String, args: Vec<String>, label: String, silent: bool },
+    Run {
+        program: String,
+        args: Vec<String>,
+        label: String,
+        silent: bool,
+        /// Killed after this many seconds.
+        #[serde(skip)]
+        limit: u64,
+    },
 }
 
 pub struct Engine {
@@ -125,7 +133,13 @@ impl Engine {
                     title: a.name,
                     icon: icons.get(&a.icon).cloned().unwrap_or_default(),
                     keywords,
-                    actions: vec![Action::new("launch", "Lancer"), Action::new("reveal", "Afficher le fichier .desktop")],
+                    actions: {
+                        let mut v = vec![Action::new("launch", "Lancer"), Action::new("reveal", "Afficher le fichier .desktop")];
+                        if a.removable {
+                            v.push(Action::new("uninstall", "Désinstaller").danger());
+                        }
+                        v
+                    },
                     data: a.path.to_string_lossy().into_owned(),
                 }
             })
@@ -401,6 +415,7 @@ mod tests {
             keywords: vec![],
             exec_name: exec.into(),
             icon: String::new(),
+            removable: false,
         };
         e.set_apps(
             vec![app("code.desktop", "Visual Studio Code", "code"), app("t.desktop", "Terminal", "gnome-terminal")],
