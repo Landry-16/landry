@@ -12,6 +12,7 @@ pub mod snippets;
 pub mod system;
 pub mod text;
 pub mod tools;
+pub mod web;
 
 use crate::config::Settings;
 use crate::engine::Outcome;
@@ -55,6 +56,14 @@ pub fn query(enabled: &[String], settings: &Settings, selection: Option<&str>, q
     if enabled.iter().any(|m| m == "cloud") {
         out.extend(cloud::query(settings, q));
     }
+    if enabled.iter().any(|m| m == "web") {
+        out.extend(web::query(settings, q));
+        let (word, rest) = q.split_once(' ').map(|(a, b)| (a, b.trim())).unwrap_or((q, ""));
+        if matches!(word, "tr" | "traduire" | "traduction") && !rest.is_empty() {
+            let (lang, text) = web::translation_request(settings, rest);
+            out.extend(cloud::cached(&format!("translate\t{lang}\t{text}"), settings, web::translate));
+        }
+    }
     out
 }
 
@@ -84,6 +93,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "projects" => projects::run(settings, item, action, arg),
         "system" => system::run(settings, item, action, arg),
         "cloud" => cloud::run(settings, item, action),
+        "web" => web::run(item, action),
         "text" => match action {
             "paste" => Ok(Outcome::Paste { text: item.data.clone(), back: 0 }),
             "copy" => Ok(Outcome::Copy(item.data.clone())),
@@ -99,6 +109,16 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
             "fill" => Ok(Outcome::Fill(item.data.clone())),
             "view" => Ok(Outcome::View(item.data.clone())),
             "pick" => Ok(Outcome::Pick),
+            "capture" => Ok(Outcome::Capture("save".into())),
+            "ocr" => Ok(Outcome::Capture("ocr".into())),
+            "qr-save" => {
+                let svg = tools::qr_svg(&item.data)?;
+                let dir = util::output("xdg-user-dir", &["DOWNLOAD"], None).map(|s| s.trim().to_string()).unwrap_or_default();
+                let dir = if dir.is_empty() { crate::paths::expand("~") } else { std::path::PathBuf::from(dir) };
+                let path = dir.join(format!("qr-{}.svg", chrono::Local::now().format("%Y%m%d-%H%M%S")));
+                std::fs::write(&path, svg).map_err(|e| format!("{}: {e}", path.display()))?;
+                Ok(Outcome::Message(format!("QR code enregistré : {}", path.display())))
+            }
             "" => Err(item.subtitle.clone()),
             _ => Err(format!("action inconnue : {action}")),
         },
@@ -110,6 +130,13 @@ pub fn preview(item: &Item) -> Preview {
     match item.module.as_str() {
         "files" => files::preview(item),
         "projects" => projects::preview(item),
+        "tools" if item.id == "tool:qr" => match tools::qr_svg(&item.data) {
+            Ok(svg) => {
+                use base64::Engine as _;
+                Preview::Image { src: format!("data:image/svg+xml;base64,{}", base64::engine::general_purpose::STANDARD.encode(svg)) }
+            }
+            Err(e) => Preview::Text { text: e },
+        },
         "tools" if !item.data.is_empty() && item.actions.iter().any(|a| a.id == "copy") => Preview::Text { text: item.data.clone() },
         _ => Preview::None,
     }

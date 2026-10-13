@@ -172,6 +172,11 @@ fn apply_outcome(app: &AppHandle, outcome: &Outcome) {
                 }
             });
         }
+        Outcome::Capture(kind) => {
+            hide_bar(app);
+            let (h, kind) = (app.clone(), kind.clone());
+            std::thread::spawn(move || capture(&h, &kind));
+        }
         // Shown or applied by the frontend.
         Outcome::Keep | Outcome::Message(_) | Outcome::Fill(_) | Outcome::View(_) | Outcome::Ask(_) => {}
     }
@@ -203,6 +208,58 @@ fn set_clipboard(app: &AppHandle, text: String) {
         let _ = tx.send(());
     });
     let _ = rx.recv_timeout(Duration::from_secs(1));
+}
+
+/// Interactive screenshot through the portal (GNOME saves it in Pictures/Screenshots), then
+/// copy the image, or the text Tesseract reads in it.
+fn capture(app: &AppHandle, kind: &str) {
+    // Let the bar disappear before GNOME's screenshot UI freezes the screen.
+    std::thread::sleep(Duration::from_millis(250));
+    let shot = tauri::async_runtime::block_on(async {
+        ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true).send().await?.response()
+    });
+    let path = match shot.map(|s| url::Url::parse(s.uri().as_str()).ok().and_then(|u| u.to_file_path().ok())) {
+        Ok(Some(p)) => p,
+        Ok(None) => return notify("Capture", "Chemin de capture inattendu."),
+        Err(e) => return eprintln!("landry: capture annulée ou indisponible : {e}"),
+    };
+    if kind == "ocr" {
+        let langs = util::output("tesseract", &["--list-langs"], None).unwrap_or_default();
+        let lang = if langs.lines().any(|l| l.trim() == "fra") { "fra+eng" } else { "eng" };
+        match util::output("tesseract", &[&path.to_string_lossy(), "stdout", "-l", lang], None) {
+            Ok(text) if !text.trim().is_empty() => {
+                // Wayland only lets a focused window set the clipboard: show the bar, which also
+                // lets the user see what was read.
+                let text = text.trim().to_string();
+                show_bar(app, String::new());
+                set_clipboard(app, text.clone());
+                let preview: String = text.chars().take(300).collect();
+                let _ = app.emit("landry://notice", format!("Texte copié : {preview}"));
+            }
+            Ok(_) => notify("OCR", "Aucun texte reconnu dans cette zone."),
+            Err(e) => notify("OCR indisponible", &format!("{e}. Installe tesseract-ocr et tesseract-ocr-fra (scripts/install-deps.sh).")),
+        }
+        return;
+    }
+    let (tx, rx) = mpsc::channel();
+    let p = path.clone();
+    let _ = app.run_on_main_thread(move || {
+        let ok = match gtk::gdk_pixbuf::Pixbuf::from_file(&p) {
+            Ok(pix) => {
+                let cb = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+                cb.set_image(&pix);
+                cb.store();
+                true
+            }
+            Err(_) => false,
+        };
+        let _ = tx.send(ok);
+    });
+    let copied = rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false);
+    notify(
+        "Capture enregistrée",
+        &format!("{}{}", path.display(), if copied { " (copiée dans le presse-papiers)" } else { "" }),
+    );
 }
 
 /// Screen color picker through the Screenshot portal, then show the bar with the color.
@@ -637,6 +694,8 @@ fn index_others(app: &AppHandle) {
         e.set_index("tools", modules::tools::catalog());
         e.set_index("system", modules::system::ssh_items());
     }
+    let bookmarks = modules::web::bookmarks();
+    engine(app).set_index("web", bookmarks);
     // Projects: names first, git states a moment later.
     let fast = modules::projects::scan(&settings, false);
     engine(app).set_index("projects", fast);

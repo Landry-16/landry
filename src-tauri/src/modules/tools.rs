@@ -50,6 +50,30 @@ pub fn catalog() -> Vec<Item> {
         data: "diff".into(),
         ..Default::default()
     });
+    for (id, title, sub, kw, action) in [
+        ("tool:capture", "Capture d'une zone", "Enregistrée dans Images et copiée", &["capture", "screenshot", "ecran"][..], "capture"),
+        ("tool:ocr", "Texte d'une zone (OCR)", "Copie le texte reconnu à l'écran", &["ocr", "texte", "tesseract", "reconnaissance"][..], "ocr"),
+    ] {
+        out.push(Item {
+            id: id.into(),
+            module: "tools".into(),
+            title: title.into(),
+            subtitle: sub.into(),
+            keywords: kw.iter().map(|s| s.to_string()).collect(),
+            actions: vec![Action::new(action, title)],
+            ..Default::default()
+        });
+    }
+    out.push(Item {
+        id: "tool:catalog:qr".into(),
+        module: "tools".into(),
+        title: "QR code".into(),
+        subtitle: "qr <texte ou URL>".into(),
+        keywords: vec!["qr".into(), "qrcode".into()],
+        actions: vec![Action::new("fill", "Utiliser")],
+        data: "qr ".into(),
+        ..Default::default()
+    });
     out.push(Item {
         id: "tool:pick".into(),
         module: "tools".into(),
@@ -239,6 +263,15 @@ pub fn query(q: &str) -> Vec<Item> {
         ("sha1", false) => vec![digest("sha1", Sha1::digest(rest.as_bytes()).to_vec())],
         ("md5", false) => vec![digest("md5", Md5::digest(rest.as_bytes()).to_vec())],
         ("jwt", false) => jwt(rest),
+        ("qr" | "qrcode", false) => vec![Item {
+            id: "tool:qr".into(),
+            module: "tools".into(),
+            title: format!("QR code : {}", one_line(rest)),
+            subtitle: "Entrée pour l'enregistrer en SVG dans Téléchargements".into(),
+            actions: vec![Action::new("qr-save", "Enregistrer en SVG"), Action::new("copy", "Copier le texte")],
+            data: rest.to_string(),
+            ..Default::default()
+        }],
         ("ts" | "timestamp", _) => timestamp(rest),
         ("regex", false) => regex_test(rest),
         ("contraste" | "contrast", false) => {
@@ -255,9 +288,22 @@ pub fn query(q: &str) -> Vec<Item> {
     }
 }
 
+/// SVG of a QR code (dark modules on white, with a quiet zone).
+pub fn qr_svg(text: &str) -> Result<String, String> {
+    let code = qrcode::QrCode::new(text.as_bytes()).map_err(|e| format!("QR code impossible : {e}"))?;
+    Ok(code.render::<qrcode::render::svg::Color>().min_dimensions(256, 256).quiet_zone(true).build())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn qr() {
+        let svg = qr_svg("https://landry.dev").unwrap();
+        assert!(svg.starts_with("<?xml") && svg.contains("<svg"));
+        assert_eq!(first("qr https://landry.dev").data, "https://landry.dev");
+    }
 
     fn first(q: &str) -> Item {
         query(q).into_iter().next().unwrap_or_else(|| panic!("aucun résultat pour {q}"))

@@ -82,6 +82,13 @@
     </div>
 
     <div class="group">
+      <h2>Traduction</h2>
+      <label>Langue cible par défaut <input bind:value={settings.translate_target} maxlength="5" placeholder="EN" /></label>
+      <label>Serveur LibreTranslate (facultatif) <input bind:value={settings.translate_url} placeholder="https://libretranslate.example/translate" spellcheck="false" /></label>
+      <p class="hint">« tr bonjour » ou « tr de bonjour ». Sans serveur, Landry utilise DeepL avec la clé de l'onglet Comptes.</p>
+    </div>
+
+    <div class="group">
       <h2>Recherches web</h2>
       <label for="prefixes"><span>Un par ligne : <code>préfixe = URL</code>, avec {'{q}'} à la place du texte cherché.</span></label>
       <textarea id="prefixes" bind:value={prefixes} rows="6" spellcheck="false"></textarea>

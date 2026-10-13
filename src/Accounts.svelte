@@ -40,14 +40,18 @@
       </div>
       <label>
         {a.configured ? 'Remplacer le jeton' : 'Jeton d’accès'}
-        <input type="password" bind:value={drafts[a.id]} autocomplete="off" spellcheck="false" placeholder={a.id === 'github' ? 'ghp_… (droits : repo, read:org)' : 'Jeton Vercel'} />
+        <input type="password" bind:value={drafts[a.id]} autocomplete="off" spellcheck="false" placeholder={{ github: 'ghp_… (droits : repo, read:org)', vercel: 'Jeton Vercel', translate: 'Clé DeepL (…:fx) ou clé LibreTranslate' }[a.id]} />
       </label>
       <div class="buttons">
         {#if a.configured}<button class="danger" onclick={() => save(a.id, '')}>Supprimer</button>{/if}
         <button class="primary" disabled={!drafts[a.id]?.trim()} onclick={() => save(a.id, drafts[a.id])}>Enregistrer</button>
       </div>
       <p class="hint">
-        {a.id === 'github' ? 'Utilisé par « pr » (tes pull requests et leur CI) et « issues » (issues assignées).' : 'Utilisé par « vercel » (déploiements, logs, redéploiement).'}
+        {{
+          github: 'Utilisé par « pr » (tes pull requests et leur CI) et « issues » (issues assignées).',
+          vercel: 'Utilisé par « vercel » (déploiements, logs, redéploiement).',
+          translate: 'Utilisé par « tr <texte> ». Le texte à traduire est envoyé au service choisi.',
+        }[a.id]}
       </p>
     </div>
   {/each}

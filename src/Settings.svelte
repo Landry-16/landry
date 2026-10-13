@@ -18,6 +18,7 @@
     tasks: 'Tâches et rappels',
     timers: 'Minuteurs, Pomodoro',
     tracking: 'Suivi du temps',
+    web: 'Web, favoris, traduction',
     tools: 'Boîte à outils',
     projects: 'Projets git',
     files: 'Fichiers',

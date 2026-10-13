@@ -1,6 +1,6 @@
 # STATUS
 
-Phase courante : **Phase 5, web et captures**
+Phase courante : **Phase 6, finitions**
 
 ## Phase 0 : focus et raccourci
 - [x] Binaire unique `landry` : `landry daemon` (processus résident), `landry [toggle|show|hide|ping|quit]` (CLI)
@@ -52,8 +52,16 @@ Phase courante : **Phase 5, web et captures**
 - [x] Suivi du temps : `suivi <client>`, `suivi stop`, totaux du jour, export CSV dans Téléchargements
 - [x] Boucle d'une seconde dans le résident (minuteurs, rappels, rafraîchissement de la barre si un minuteur tourne)
 
+## Phase 5 : web et captures
+- [x] Recherches par préfixe (`gh texte`, `wiki`, ajoutables dans Général), URL tapée ouverte directement
+- [x] Favoris Firefox (dont Firefox Snap, lus sur une copie de places.sqlite) et Chrome, Chromium, Brave
+- [x] Traduction `tr [code] texte` : DeepL (clé dans le trousseau) ou serveur LibreTranslate, en arrière-plan avec cache
+- [x] Capture d'une zone (portail Screenshot interactif), image copiée ; OCR Tesseract (fra+eng si présent) avec texte affiché et copié
+- [x] QR codes (`qr texte`) avec aperçu et enregistrement SVG
+- [ ] Non testé à la main : capture et OCR (Tesseract absent de la machine), traduction sans clé
+
 ## Prochaine étape
-Phase 5, étape 1 : recherches web par préfixe (`settings.search_prefixes`, module `web` dans `modules/web.rs`), favoris Firefox et Chrome (copie temporaire de places.sqlite et de Bookmarks JSON), traduction via API configurable. Puis captures : capture de zone (portail Screenshot interactif), OCR (`tesseract`, absent de la machine : voir scripts/install-deps.sh), QR codes.
+Phase 6, étape 1 : scripts simples (dossier `~/.config/landry/scripts`, en-tête `# @landry title: …`, sortie affichée), surveillés à chaud. Puis export et import global, dictionnaires FR/EN, accessibilité, démarrage avec la session et icône de barre système, paquets .deb et AppImage, README.
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.

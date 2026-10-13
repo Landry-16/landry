@@ -29,6 +29,8 @@ pub enum Outcome {
     Paste { text: String, back: usize },
     /// Ask these fields, then activate again with their values as a JSON object.
     Ask(Vec<String>),
+    /// Hide, take an interactive screenshot through the portal: "save" or "ocr".
+    Capture(String),
 }
 
 pub struct Engine {

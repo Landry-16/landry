@@ -10,8 +10,8 @@ pub const DEFAULT_NAME: &str = "Défaut";
 
 /// Every module the bar knows, in default display order.
 pub const MODULES: &[&str] = &[
-    "commands", "timers", "tracking", "apps", "snippets", "text", "calc", "tools", "tasks", "notes", "projects", "files", "system",
-    "cloud",
+    "commands", "timers", "tracking", "apps", "snippets", "text", "calc", "tools", "web", "tasks", "notes", "projects", "files",
+    "system", "cloud",
 ];
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
@@ -346,6 +346,10 @@ pub struct Settings {
     pub micro_rate: Option<f64>,
     /// Optional "versement libératoire" rate in percent.
     pub micro_tax_rate: Option<f64>,
+    /// Default target language for "tr <texte>" (DeepL code: EN, FR, DE...).
+    pub translate_target: String,
+    /// LibreTranslate-compatible URL; empty: DeepL with the key from the keyring.
+    pub translate_url: String,
 }
 
 impl Default for Settings {
@@ -373,6 +377,8 @@ impl Default for Settings {
             vat_rate: 20.0,
             micro_rate: None,
             micro_tax_rate: None,
+            translate_target: "EN".into(),
+            translate_url: String::new(),
         }
     }
 }

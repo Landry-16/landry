@@ -17,6 +17,7 @@
     tasks: 'Tâche',
     timers: 'Minuteur',
     tracking: 'Suivi',
+    web: 'Web',
     text: 'Texte',
     projects: 'Projet',
     files: 'Fichier',
@@ -140,6 +141,7 @@
         focusInput();
       }),
       listen('landry://view', (e) => openView(e.payload)),
+      listen('landry://notice', (e) => (message = e.payload)),
       // Background data (GitHub, Vercel) arrived: search again.
       listen('landry://refresh', () => view === 'bar' && runSearch(query)),
     ];

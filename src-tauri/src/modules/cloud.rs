@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 const SERVICE: &str = "landry";
 const TTL: Duration = Duration::from_secs(60);
 
-pub const ACCOUNTS: &[(&str, &str)] = &[("github", "GitHub"), ("vercel", "Vercel")];
+pub const ACCOUNTS: &[(&str, &str)] = &[("github", "GitHub"), ("vercel", "Vercel"), ("translate", "Traduction")];
 
 // ---------- Secrets ----------
 
@@ -37,7 +37,7 @@ pub fn set_token(account: &str, token: &str) -> Result<(), String> {
 
 // ---------- Background fetch with cache ----------
 
-type Fetch = fn(&Settings, &str) -> Result<Vec<Item>, String>;
+pub type Fetch = fn(&Settings, &str) -> Result<Vec<Item>, String>;
 
 struct Cached {
     at: Instant,
@@ -66,7 +66,7 @@ fn clear_cache() {
 }
 
 fn info(key: &str, title: &str, subtitle: &str) -> Item {
-    Item { id: format!("cloud:{key}"), module: "cloud".into(), title: title.into(), subtitle: subtitle.into(), ..Default::default() }
+    Item { id: format!("cloud:{}", key.replace('\t', ":")), module: "cloud".into(), title: title.into(), subtitle: subtitle.into(), ..Default::default() }
 }
 
 fn missing_token(name: &str) -> Item {
@@ -77,7 +77,7 @@ fn missing_token(name: &str) -> Item {
 }
 
 /// Cached items for `key`, fetching in the background when stale.
-fn cached(key: &str, settings: &Settings, fetch: Fetch) -> Vec<Item> {
+pub fn cached(key: &str, settings: &Settings, fetch: Fetch) -> Vec<Item> {
     let fresh = {
         let c = cache().lock().unwrap_or_else(|e| e.into_inner());
         c.get(key).map(|v| (v.at.elapsed() < TTL, v.items.clone()))
@@ -101,7 +101,7 @@ fn cached(key: &str, settings: &Settings, fetch: Fetch) -> Vec<Item> {
         }
     }
     // Stale data is better than nothing while refreshing.
-    fresh.map(|(_, items)| items).unwrap_or_else(|| vec![info(&format!("{key}:loading"), "Chargement…", key)])
+    fresh.map(|(_, items)| items).unwrap_or_else(|| vec![info(&format!("{key}:loading"), "Chargement…", &key.replace('\t', " · "))])
 }
 
 fn client() -> Result<reqwest::blocking::Client, String> {
