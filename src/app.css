@@ -1,0 +1,18 @@
+:root {
+  --bar-bg: #1c1a2e;
+  --bar-fg: #f0ecff;
+  --bar-muted: #9b95b8;
+  --bar-accent: #ffb84c;
+  --bar-radius: 16px;
+  --bar-font: system-ui, sans-serif;
+  --bar-font-size: 16px;
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--bar-font);
+  font-size: var(--bar-font-size);
+}
