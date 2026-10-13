@@ -83,6 +83,7 @@ impl Engine {
         e.reload_config();
         e.reload_snippets();
         e.reload_organizer();
+        e.load_timers();
         e
     }
 

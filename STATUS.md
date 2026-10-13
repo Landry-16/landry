@@ -78,7 +78,7 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 5. L'AppImage après `scripts/install-deps.sh`.
 
 ## Prochaine étape
-Aucune phase restante. Pistes : traduire aussi les textes produits par le cœur (titres de résultats, messages), garder les minuteurs après un redémarrage, extensions TypeScript, intégration IA prévue plus tard.
+Aucune phase restante. Pistes : traduire aussi les textes produits par le cœur (titres de résultats, messages), extensions TypeScript, intégration IA prévue plus tard.
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -110,7 +110,7 @@ Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `wind
 - Calculatrice appelée seulement si dates et montants n'ont rien compris (sinon « 15h » devient 15 heures).
 - Taux de cotisations jamais par défaut : l'utilisateur les saisit (ils changent chaque année).
 - Collage : nouvelle session RemoteDesktop à chaque fois, pour ne pas laisser l'indicateur de contrôle à distance de GNOME allumé en permanence.
-- Minuteurs en mémoire seulement : un redémarrage de Landry les perd (les tâches, notes et suivi sont en base).
+- Minuteurs enregistrés en base : ils survivent à un redémarrage ; un minuteur échu pendant l'arrêt est notifié au redémarrage.
 - Sous un résultat calculé (calcul, outil), seules les correspondances textuelles nettes restent affichées.
 - Interface traduite (composants) ; les textes produits par le cœur Rust (titres de résultats, messages) restent en français.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.

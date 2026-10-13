@@ -29,6 +29,25 @@ pub struct Timer {
 }
 
 impl Timer {
+    fn stored(&self) -> usage::StoredTimer {
+        let (kind, focus, round) = match &self.kind {
+            TimerKind::Countdown => ("countdown", false, 0),
+            TimerKind::Stopwatch => ("stopwatch", false, 0),
+            TimerKind::Pomodoro { focus, round } => ("pomodoro", *focus, *round),
+        };
+        usage::StoredTimer { id: self.id, kind: kind.into(), label: self.label.clone(), start: self.start, length: self.length, focus, round }
+    }
+
+    fn from_stored(s: usage::StoredTimer) -> Option<Timer> {
+        let kind = match s.kind.as_str() {
+            "countdown" => TimerKind::Countdown,
+            "stopwatch" => TimerKind::Stopwatch,
+            "pomodoro" => TimerKind::Pomodoro { focus: s.focus, round: s.round },
+            _ => return None,
+        };
+        Some(Timer { id: s.id, kind, label: s.label, start: s.start, length: s.length })
+    }
+
     fn title(&self, now: i64) -> String {
         let elapsed = now - self.start;
         match &self.kind {
@@ -230,6 +249,7 @@ impl Engine {
                 let id: u32 = item.data.parse().map_err(|_| "minuteur inconnu")?;
                 let t = self.timers.iter().find(|t| t.id == id).cloned().ok_or("ce minuteur est déjà terminé")?;
                 self.timers.retain(|t| t.id != id);
+                self.persist_timers();
                 msg(match t.kind {
                     TimerKind::Stopwatch => format!("Chronomètre arrêté à {}", clock(now - t.start)),
                     _ => "Minuteur arrêté.".into(),
@@ -287,6 +307,23 @@ impl Engine {
     fn add_timer(&mut self, kind: TimerKind, label: &str, start: i64, length: i64) {
         self.next_timer += 1;
         self.timers.push(Timer { id: self.next_timer, kind, label: label.to_string(), start, length });
+        self.persist_timers();
+    }
+
+    /// Timers survive a restart; one that ended meanwhile is reported at the next tick.
+    pub fn load_timers(&mut self) {
+        let stored = self.db_ref().and_then(|d| d.load_timers().ok()).unwrap_or_default();
+        self.timers = stored.into_iter().filter_map(Timer::from_stored).collect();
+        self.next_timer = self.timers.iter().map(|t| t.id).max().unwrap_or(0);
+    }
+
+    fn persist_timers(&self) {
+        if let Some(db) = self.db_ref() {
+            let rows: Vec<_> = self.timers.iter().map(Timer::stored).collect();
+            if let Err(e) = db.save_timers(&rows) {
+                eprintln!("landry: minuteurs non enregistrés : {e}");
+            }
+        }
     }
 
     pub fn has_timers(&self) -> bool {
@@ -297,14 +334,17 @@ impl Engine {
     pub fn tick(&mut self, now: i64) -> Vec<(String, String)> {
         let mut out = Vec::new();
         let mut keep = Vec::new();
+        let mut changed = false;
         for mut t in std::mem::take(&mut self.timers) {
             let done = t.length > 0 && now - t.start >= t.length;
             match (&t.kind, done) {
                 (TimerKind::Countdown, true) => {
+                    changed = true;
                     out.push(("Minuteur terminé".into(), if t.label.is_empty() { human(t.length) } else { t.label.clone() }));
                     continue;
                 }
                 (TimerKind::Pomodoro { focus, round }, true) => {
+                    changed = true;
                     let (focus, round) = (!*focus, if *focus { round + 1 } else { *round });
                     out.push(if focus {
                         ("Pomodoro : au travail".into(), format!("Session {} : 25 minutes", round + 1))
@@ -320,6 +360,9 @@ impl Engine {
             keep.push(t);
         }
         self.timers = keep;
+        if changed {
+            self.persist_timers();
+        }
         if let Some(db) = self.db_ref() {
             for task in db.take_due_reminders(now).unwrap_or_default() {
                 out.push(("Rappel".into(), task.text));
@@ -359,6 +402,21 @@ mod tests {
         assert!(e.tick(t0 + 599).is_empty());
         assert_eq!(e.tick(t0 + 600), vec![("Minuteur terminé".to_string(), "pâtes".to_string())]);
         assert!(!e.has_timers());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn timers_survive_a_restart() {
+        let (mut e, dir) = engine();
+        let it = e.organizer_query(&all(), "minuteur 1h four")[0].clone();
+        e.organizer_run(&it, "timer-start").unwrap();
+        let start = e.timers[0].start;
+        let db = usage::Db::open(&dir.join("landry.db")).ok();
+        let mut again = Engine::new(Store::new(dir.join("config")), db);
+        assert_eq!(again.timers.len(), 1);
+        assert_eq!(again.timers[0].label, "four");
+        assert_eq!(again.tick(start + 3600)[0].0, "Minuteur terminé");
+        assert!(usage::Db::open(&dir.join("landry.db")).unwrap().load_timers().unwrap().is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

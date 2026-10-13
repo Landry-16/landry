@@ -29,6 +29,18 @@ pub struct Task {
     pub done: bool,
 }
 
+/// A timer as stored in SQLite; `kind` is "countdown", "stopwatch" or "pomodoro".
+#[derive(Clone, Debug, PartialEq)]
+pub struct StoredTimer {
+    pub id: u32,
+    pub kind: String,
+    pub label: String,
+    pub start: i64,
+    pub length: i64,
+    pub focus: bool,
+    pub round: u32,
+}
+
 #[derive(serde::Serialize, Clone, Debug, PartialEq)]
 pub struct TimeEntry {
     pub id: i64,
@@ -81,7 +93,10 @@ impl Db {
                  id INTEGER PRIMARY KEY, text TEXT NOT NULL, due INTEGER, done INTEGER NOT NULL DEFAULT 0,
                  notified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS time_entries (
-                 id INTEGER PRIMARY KEY, label TEXT NOT NULL, start INTEGER NOT NULL, end INTEGER);",
+                 id INTEGER PRIMARY KEY, label TEXT NOT NULL, start INTEGER NOT NULL, end INTEGER);
+             CREATE TABLE IF NOT EXISTS timers (
+                 id INTEGER PRIMARY KEY, kind TEXT NOT NULL, label TEXT NOT NULL, start INTEGER NOT NULL,
+                 length INTEGER NOT NULL, focus INTEGER NOT NULL, round INTEGER NOT NULL);",
         )?;
         let db = Db { conn };
         db.prune(now())?;
@@ -212,6 +227,28 @@ impl Db {
             self.conn.execute("UPDATE tasks SET notified = 1 WHERE id = ?1", [t.id])?;
         }
         Ok(due)
+    }
+
+    // ---------- Timers ----------
+
+    /// Replace the stored timers (a handful of rows, rewritten on each change).
+    pub fn save_timers(&self, timers: &[StoredTimer]) -> rusqlite::Result<()> {
+        self.conn.execute("DELETE FROM timers", [])?;
+        for t in timers {
+            self.conn.execute(
+                "INSERT INTO timers (id, kind, label, start, length, focus, round) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![t.id, t.kind, t.label, t.start, t.length, t.focus, t.round],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn load_timers(&self) -> rusqlite::Result<Vec<StoredTimer>> {
+        let mut stmt = self.conn.prepare("SELECT id, kind, label, start, length, focus, round FROM timers ORDER BY id")?;
+        let rows = stmt.query_map([], |r| {
+            Ok(StoredTimer { id: r.get(0)?, kind: r.get(1)?, label: r.get(2)?, start: r.get(3)?, length: r.get(4)?, focus: r.get(5)?, round: r.get(6)? })
+        })?;
+        rows.collect()
     }
 
     // ---------- Time tracking ----------
