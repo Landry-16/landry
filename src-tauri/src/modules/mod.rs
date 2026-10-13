@@ -2,6 +2,7 @@
 
 pub mod cloud;
 pub mod color;
+pub mod content;
 pub mod convert;
 pub mod dates;
 pub mod dict;

@@ -65,7 +65,8 @@
           "ffmpeg",
           "imagemagick",
           "poppler-utils",
-          "ghostscript"
+          "ghostscript",
+          "ripgrep"
         ]
       }
     }
