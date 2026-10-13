@@ -13,6 +13,10 @@ scripts/package.sh             # construit dist-packages/landry_<version>_amd64.
 sudo apt install ./dist-packages/landry_0.1.0_amd64.deb
 ```
 
+`landry doctor` vérifie ensuite que tout est en place.
+
+Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script continue quand même. Pour faire disparaître l'erreur, retire le dépôt concerné, par exemple `sudo add-apt-repository --remove ppa:alexlarsson/flatpak`.
+
 Sans les dépendances de développement, `scripts/package.sh` construit quand même le `.deb` avec `dpkg-deb`. L'AppImage passe par le bundler Tauri, qui a besoin de `libayatana-appindicator3-dev`.
 
 ## Le raccourci
@@ -34,6 +38,7 @@ Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
 | Commande | Effet |
 | --- | --- |
 | `landry toggle` | ouvre ou ferme la barre |
+| `landry doctor` | vérifie l'installation (raccourci, portails, outils) et dit quoi corriger |
 | `landry search <texte>` | affiche les résultats sans ouvrir la barre |
 | `landry run <texte>` | exécute le premier résultat |
 | `landry preset list` | liste les presets |

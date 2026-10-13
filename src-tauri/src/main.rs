@@ -1,6 +1,7 @@
 mod apps;
 mod backup;
 mod config;
+mod doctor;
 mod engine;
 mod ipc;
 mod modules;
@@ -32,6 +33,7 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("daemon") => daemon(),
+        Some("doctor") => std::process::exit(doctor::run()),
         _ => std::process::exit(ipc::client(&args)),
     }
 }
