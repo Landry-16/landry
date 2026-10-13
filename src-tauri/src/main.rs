@@ -202,12 +202,16 @@ fn notify(summary: &str, body: &str) {
     }
 }
 
-/// Read a GTK clipboard (CLIPBOARD or PRIMARY) on the main thread.
+/// Read a GTK clipboard (CLIPBOARD or PRIMARY). The request is asynchronous: the owner of the
+/// selection may never answer (Spotify under XWayland does not), and `wait_for_text` would then
+/// freeze the main loop, so the bar could not open again until that app quit.
 fn read_selection(app: &AppHandle, primary: bool) -> Option<String> {
     let (tx, rx) = mpsc::channel();
     let _ = app.run_on_main_thread(move || {
         let atom = if primary { gtk::gdk::SELECTION_PRIMARY } else { gtk::gdk::SELECTION_CLIPBOARD };
-        let _ = tx.send(gtk::Clipboard::get(&atom).wait_for_text().map(|s| s.to_string()));
+        gtk::Clipboard::get(&atom).request_text(move |_, text| {
+            let _ = tx.send(text.map(str::to_string));
+        });
     });
     rx.recv_timeout(Duration::from_millis(500)).ok().flatten()
 }
