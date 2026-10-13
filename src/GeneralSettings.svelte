@@ -7,9 +7,12 @@
   let aliases = $state('');
   let prefixes = $state('');
   let message = $state('');
+  let autostart = $state(false);
+  let importPath = $state('');
   let failure = $state('');
 
   $effect(() => {
+    invoke('autostart_get').then((v) => (autostart = v));
     invoke('get_settings').then((s) => {
       settings = s;
       roots = s.file_roots.join('\n');
@@ -17,6 +20,22 @@
       prefixes = formatPairs(s.search_prefixes);
     });
   });
+
+  async function run(fn) {
+    message = '';
+    failure = '';
+    try {
+      message = await fn();
+    } catch (e) {
+      failure = String(e);
+    }
+  }
+
+  const toggleAutostart = () =>
+    run(async () => {
+      await invoke('autostart_set', { on: autostart });
+      return autostart ? 'Landry démarrera avec la session.' : 'Démarrage automatique désactivé.';
+    });
 
   async function save() {
     message = '';
@@ -50,6 +69,18 @@
 
 {#if settings}
   <div class="general">
+    <div class="group">
+      <h2>Démarrage et sauvegarde</h2>
+      <label class="check"><input type="checkbox" bind:checked={autostart} onchange={toggleAutostart} /> Démarrer Landry avec la session</label>
+      <button onclick={() => run(async () => `Sauvegarde : ${await invoke('backup_export')}`)}>Exporter une sauvegarde complète</button>
+      <label for="backup-path">Importer une sauvegarde (rien n'est supprimé, les doublons sont ignorés)</label>
+      <div class="inline">
+        <input id="backup-path" bind:value={importPath} placeholder="~/Téléchargements/landry-sauvegarde-….json" spellcheck="false" />
+        <button disabled={!importPath.trim()} onclick={() => run(() => invoke('backup_import', { path: importPath }))}>Importer</button>
+      </div>
+      <p class="hint">Réglages, presets, extraits et notes. Les jetons restent dans le trousseau et ne sont jamais exportés.</p>
+    </div>
+
     <div class="group">
       <h2>Recherche de fichiers</h2>
       <label for="roots">Dossiers indexés, un par ligne. Vide : Documents, Téléchargements, Bureau, Images, Musique, Vidéos.</label>
@@ -150,6 +181,31 @@
   }
   code {
     color: var(--fg);
+  }
+  label.check {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    color: var(--fg);
+  }
+  .inline {
+    display: flex;
+    gap: 6px;
+  }
+  .inline input {
+    flex: 1;
+    min-width: 0;
+  }
+  .group > button,
+  .inline button {
+    border: 1px solid var(--border);
+    background: transparent;
+    border-radius: 9px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.45;
   }
   .hint {
     margin: 0;

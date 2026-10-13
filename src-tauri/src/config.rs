@@ -449,6 +449,15 @@ impl Store {
         }
     }
 
+    /// Keep a copy of settings.json before it gets replaced (import).
+    pub fn backup_settings(&self) -> Result<(), String> {
+        let p = self.settings_path();
+        if p.exists() {
+            std::fs::copy(&p, p.with_extension("json.bak")).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
     pub fn save_settings(&self, s: &Settings) -> Result<(), String> {
         let json = serde_json::to_string_pretty(s).map_err(|e| e.to_string())?;
         write_atomic(&self.settings_path(), &json)

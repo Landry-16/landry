@@ -1,4 +1,5 @@
 mod apps;
+mod backup;
 mod config;
 mod engine;
 mod ipc;
@@ -579,6 +580,49 @@ fn note_delete(state: State<EngineState>, id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn backup_export(state: State<EngineState>) -> Result<String, String> {
+    let e = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    e.export_backup(&downloads_dir()).map(|p| p.display().to_string())
+}
+
+#[tauri::command]
+fn backup_import(app: AppHandle, path: String) -> Result<String, String> {
+    let msg = engine(&app).import_backup(&paths::expand(path.trim()))?;
+    emit_preset(&app);
+    Ok(msg)
+}
+
+fn autostart_file() -> PathBuf {
+    paths::expand("~/.config/autostart/landry.desktop")
+}
+
+#[tauri::command]
+fn autostart_get() -> bool {
+    autostart_file().exists()
+}
+
+/// Start the resident process with the session (XDG autostart entry).
+#[tauri::command]
+fn autostart_set(on: bool) -> Result<(), String> {
+    let path = autostart_file();
+    if !on {
+        return match std::fs::remove_file(&path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+            _ => Ok(()),
+        };
+    }
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let entry = format!(
+        "[Desktop Entry]\nType=Application\nName=Landry\nComment=Compagnon du quotidien\nExec=\"{}\" daemon\nIcon=landry\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
+        exe.display()
+    );
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, entry).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn copy_text(app: AppHandle, text: String) {
     set_clipboard(&app, text);
 }
@@ -793,6 +837,41 @@ fn clock_loop(app: &AppHandle) {
     }
 }
 
+/// Icon in the top bar (needs the AppIndicator extension, enabled by default on Ubuntu).
+fn tray(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+    let open = MenuItem::with_id(app, "open", "Ouvrir Landry", true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", "Réglages", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quitter Landry", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &settings, &quit])?;
+    let mut builder = tauri::tray::TrayIconBuilder::with_id("landry").tooltip("Landry").menu(&menu);
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder
+        .on_menu_event(|app, e| {
+            let h = app.clone();
+            match e.id().as_ref() {
+                // show_bar waits for the first frame: never on the event loop thread.
+                "open" => {
+                    std::thread::spawn(move || {
+                        show_bar(&h, String::new());
+                    });
+                }
+                "settings" => {
+                    std::thread::spawn(move || {
+                        show_bar(&h, String::new());
+                        let _ = h.emit("landry://open-settings", ());
+                    });
+                }
+                "quit" => app.exit(0),
+                _ => {}
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
 /// Hot reload: rescan the scripts folder when it changes.
 fn watch_scripts(app: &AppHandle) {
     use notify::{RecursiveMode, Watcher};
@@ -871,6 +950,10 @@ fn daemon() {
             set_token,
             snippets_list,
             notes_list,
+            backup_export,
+            autostart_get,
+            autostart_set,
+            backup_import,
             note_save,
             note_delete,
             snippet_save,
@@ -891,6 +974,9 @@ fn daemon() {
             preset_import
         ])
         .setup(move |app| {
+            if let Err(e) = tray(app.handle()) {
+                eprintln!("landry: icône de barre système indisponible : {e}");
+            }
             let h = app.handle().clone();
             std::thread::spawn(move || ipc::serve(listener, move |req| handle(&h, req)));
             let h = app.handle().clone();
