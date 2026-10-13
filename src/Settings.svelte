@@ -3,6 +3,7 @@
   import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { styleString } from './lib/theme.js';
+  import { contrast } from './lib/contrast.js';
   import GeneralSettings from './GeneralSettings.svelte';
   import Accounts from './Accounts.svelte';
   import Snippets from './Snippets.svelte';
@@ -55,6 +56,17 @@
   const info = $derived(presets.find((p) => p.name === selectedName));
   const builtin = $derived(info?.builtin ?? false);
   const dirty = $derived(draft && JSON.stringify(draft) !== original);
+  // Text pairs that must stay readable (WCAG AA: 4.5:1).
+  const checks = $derived(
+    draft
+      ? [
+          ['Texte', 'fg', 'bg'],
+          ['Texte discret', 'muted', 'bg'],
+          ['Texte discret sur la sélection', 'muted', 'selection'],
+          ['Accent', 'accent', 'bg'],
+        ].map(([label, a, b]) => ({ label, ratio: contrast(draft[colorScheme][a], draft[colorScheme][b]) }))
+      : [],
+  );
 
   async function loadList() {
     presets = await invoke('preset_list');
@@ -320,6 +332,13 @@
                 <button role="tab" aria-selected={colorScheme === 'light'} onclick={() => (colorScheme = 'light')}>{t('Clair')}</button>
                 <button role="tab" aria-selected={colorScheme === 'dark'} onclick={() => (colorScheme = 'dark')}>{t('Sombre')}</button>
               </div>
+              <ul class="contrast" aria-label={t('Contrastes')}>
+                {#each checks as c}
+                  <li class:low={c.ratio !== null && c.ratio < 4.5}>
+                    {t(c.label)} : {c.ratio === null ? '?' : `${c.ratio.toFixed(2)}:1`}{c.ratio !== null && c.ratio < 4.5 ? ` · ${t('peu lisible')}` : ''}
+                  </li>
+                {/each}
+              </ul>
               {#each COLOR_KEYS as [key, label]}
                 <label class="color">{t(label)}
                   <span>
@@ -656,6 +675,16 @@
   .color input:not([type='color']) {
     flex: 1;
     width: 0;
+  }
+  .contrast {
+    margin: 0 0 4px;
+    padding: 0;
+    list-style: none;
+    font-size: 0.78em;
+    color: var(--muted);
+  }
+  .contrast .low {
+    color: #e5484d;
   }
   .modules {
     margin: 0;

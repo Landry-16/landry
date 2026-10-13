@@ -1,6 +1,6 @@
 # STATUS
 
-Phase courante : **Phase 6, finitions**
+Phase courante : **toutes les phases livrées ; restent les vérifications manuelles ci-dessous**
 
 ## Phase 0 : focus et raccourci
 - [x] Binaire unique `landry` : `landry daemon` (processus résident), `landry [toggle|show|hide|ping|quit]` (CLI)
@@ -60,8 +60,25 @@ Phase courante : **Phase 6, finitions**
 - [x] QR codes (`qr texte`) avec aperçu et enregistrement SVG
 - [ ] Non testé à la main : capture et OCR (Tesseract absent de la machine), traduction sans clé
 
+## Phase 6 : finitions
+- [x] Scripts utilisateur (`~/.config/landry/scripts`), en-têtes `@landry`, rechargement à chaud, sortie dans la barre, limite de 60 s
+- [x] `activate` et `preview` asynchrones : plus de gel de l'interface pendant un appel réseau
+- [x] Sauvegarde complète (réglages, presets, extraits, notes ; jamais les jetons) et import fusionnant sans suppression
+- [x] Démarrage avec la session (entrée XDG autostart) et icône de barre système (Ouvrir, Réglages, Quitter)
+- [x] Interface FR/EN (dictionnaire `src/i18n/en.json`, test de couverture), langue choisie dans Général
+- [x] Accessibilité : rôles ARIA, focus visible, taille de police par preset, mouvement réduit, contrôle des contrastes dans l'éditeur, accent clair corrigé (4,31 vers 5,27:1)
+- [x] Paquet .deb (`scripts/package.sh`, vérifié) ; AppImage via le bundler Tauri une fois `libayatana-appindicator3-dev` installé
+- [x] README
+
+## À vérifier par l'utilisateur
+1. Le vrai raccourci GNOME (`scripts/install-shortcut.sh`) : la barre doit prendre le focus.
+2. Le collage automatique d'un extrait (boîte de dialogue RemoteDesktop au premier essai, puis plus de question si GNOME accepte le jeton).
+3. Pipette, capture et OCR (installer `tesseract-ocr tesseract-ocr-fra`).
+4. GitHub, Vercel et traduction avec de vrais jetons.
+5. L'AppImage après `scripts/install-deps.sh`.
+
 ## Prochaine étape
-Phase 6, étape 1 : scripts simples (dossier `~/.config/landry/scripts`, en-tête `# @landry title: …`, sortie affichée), surveillés à chaud. Puis export et import global, dictionnaires FR/EN, accessibilité, démarrage avec la session et icône de barre système, paquets .deb et AppImage, README.
+Aucune phase restante. Pistes : traduire aussi les textes produits par le cœur (titres de résultats, messages), garder les minuteurs après un redémarrage, extensions TypeScript, intégration IA prévue plus tard.
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -94,7 +111,7 @@ Première ouverture après démarrage : 270 à 780 ms (vue web froide).
 - Collage : nouvelle session RemoteDesktop à chaque fois, pour ne pas laisser l'indicateur de contrôle à distance de GNOME allumé en permanence.
 - Minuteurs en mémoire seulement : un redémarrage de Landry les perd (les tâches, notes et suivi sont en base).
 - Sous un résultat calculé (calcul, outil), seules les correspondances textuelles nettes restent affichées.
-- Textes de l'interface en dur en français pour l'instant ; extraction en dictionnaires FR/EN prévue en phase 6.
+- Interface traduite (composants) ; les textes produits par le cœur Rust (titres de résultats, messages) restent en français.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.
 
 ## Problèmes ouverts

@@ -102,7 +102,7 @@ impl Colors {
             bg: "#fbf9f4".into(),
             fg: "#1f1c2c".into(),
             muted: "#6b6680".into(),
-            accent: "#c2560c".into(),
+            accent: "#ad4b09".into(),
             selection: "#efe9dc".into(),
             border: "#ddd6c6".into(),
         }
