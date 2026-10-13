@@ -1,4 +1,5 @@
 <script>
+  import { t } from './lib/i18n.svelte.js';
   import { invoke } from '@tauri-apps/api/core';
 
   let { onclose } = $props();
@@ -33,17 +34,17 @@
   }
 </script>
 
-<div class="diff" role="dialog" aria-modal="true" aria-label="Comparer deux textes" tabindex="-1" {onkeydown}>
+<div class="diff" role="dialog" aria-modal="true" aria-label={t('Comparer deux textes')} tabindex="-1" {onkeydown}>
   <header>
-    <h1>Comparer deux textes</h1>
-    <p><span class="del">−{counts.del}</span> <span class="ins">+{counts.ins}</span> lignes</p>
-    <button onclick={onclose} aria-label="Fermer">Échap</button>
+    <h1>{t('Comparer deux textes')}</h1>
+    <p><span class="del">−{counts.del}</span> <span class="ins">+{counts.ins}</span> {t('lignes')}</p>
+    <button onclick={onclose} aria-label={t('Fermer')}>{t('Échap')}</button>
   </header>
   <div class="inputs">
-    <label>Avant<textarea bind:this={first} bind:value={a} spellcheck="false"></textarea></label>
-    <label>Après<textarea bind:value={b} spellcheck="false"></textarea></label>
+    <label>{t('Avant')}<textarea bind:this={first} bind:value={a} spellcheck="false"></textarea></label>
+    <label>{t('Après')}<textarea bind:value={b} spellcheck="false"></textarea></label>
   </div>
-  <ol class="result" aria-label="Différences">
+  <ol class="result" aria-label={t('Différences')}>
     {#each lines as l}
       <li class={l.tag}><span aria-hidden="true">{l.tag === 'ins' ? '+' : l.tag === 'del' ? '−' : ' '}</span>{l.text}</li>
     {/each}

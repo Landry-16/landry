@@ -434,6 +434,7 @@ struct UiState {
     warning: Option<String>,
     history: Vec<String>,
     system_dark: bool,
+    locale: String,
 }
 
 #[tauri::command]
@@ -444,6 +445,7 @@ fn ui_state(state: State<EngineState>) -> UiState {
         warning: e.warning.clone(),
         history: e.history(),
         system_dark: SYSTEM_DARK.load(Ordering::Relaxed),
+        locale: e.settings.locale.clone(),
     }
 }
 

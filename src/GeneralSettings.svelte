@@ -1,4 +1,5 @@
 <script>
+  import { i18n, t } from './lib/i18n.svelte.js';
   import { invoke } from '@tauri-apps/api/core';
   import { parsePairs, formatPairs } from './lib/pairs.js';
 
@@ -34,7 +35,7 @@
   const toggleAutostart = () =>
     run(async () => {
       await invoke('autostart_set', { on: autostart });
-      return autostart ? 'Landry démarrera avec la session.' : 'Démarrage automatique désactivé.';
+      return autostart ? t('Landry démarrera avec la session.') : t('Démarrage automatique désactivé.');
     });
 
   async function save() {
@@ -44,7 +45,7 @@
     const p = parsePairs(prefixes);
     const bad = [...a.errors, ...p.errors];
     if (bad.length) {
-      failure = `Ligne invalide (attendu « clé = valeur ») : ${bad.join(', ')}`;
+      failure = t('Ligne invalide (attendu « clé = valeur ») : {lines}', { lines: bad.join(', ') });
       return;
     }
     const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -60,7 +61,7 @@
     try {
       await invoke('save_settings', { settings: next });
       settings = next;
-      message = 'Réglages enregistrés. Réindexation des projets et des fichiers en cours.';
+      message = t('Réglages enregistrés. Réindexation des projets et des fichiers en cours.');
     } catch (e) {
       failure = String(e);
     }
@@ -70,65 +71,71 @@
 {#if settings}
   <div class="general">
     <div class="group">
-      <h2>Démarrage et sauvegarde</h2>
-      <label class="check"><input type="checkbox" bind:checked={autostart} onchange={toggleAutostart} /> Démarrer Landry avec la session</label>
-      <button onclick={() => run(async () => `Sauvegarde : ${await invoke('backup_export')}`)}>Exporter une sauvegarde complète</button>
-      <label for="backup-path">Importer une sauvegarde (rien n'est supprimé, les doublons sont ignorés)</label>
+      <h2>{t('Démarrage et sauvegarde')}</h2>
+      <label>{t("Langue de l'interface")}
+        <select bind:value={settings.locale} onchange={() => (i18n.locale = settings.locale)}>
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" bind:checked={autostart} onchange={toggleAutostart} /> {t('Démarrer Landry avec la session')}</label>
+      <button onclick={() => run(async () => t('Sauvegarde : {p}', { p: await invoke('backup_export') }))}>{t('Exporter une sauvegarde complète')}</button>
+      <label for="backup-path">{t("Importer une sauvegarde (rien n'est supprimé, les doublons sont ignorés)")}</label>
       <div class="inline">
         <input id="backup-path" bind:value={importPath} placeholder="~/Téléchargements/landry-sauvegarde-….json" spellcheck="false" />
-        <button disabled={!importPath.trim()} onclick={() => run(() => invoke('backup_import', { path: importPath }))}>Importer</button>
+        <button disabled={!importPath.trim()} onclick={() => run(() => invoke('backup_import', { path: importPath }))}>{t('Importer')}</button>
       </div>
-      <p class="hint">Réglages, presets, extraits et notes. Les jetons restent dans le trousseau et ne sont jamais exportés.</p>
+      <p class="hint">{t('Réglages, presets, extraits et notes. Les jetons restent dans le trousseau et ne sont jamais exportés.')}</p>
     </div>
 
     <div class="group">
-      <h2>Recherche de fichiers</h2>
-      <label for="roots">Dossiers indexés, un par ligne. Vide : Documents, Téléchargements, Bureau, Images, Musique, Vidéos.</label>
+      <h2>{t('Recherche de fichiers')}</h2>
+      <label for="roots">{t('Dossiers indexés, un par ligne. Vide : Documents, Téléchargements, Bureau, Images, Musique, Vidéos.')}</label>
       <textarea id="roots" bind:value={roots} rows="4" placeholder="~/Documents" spellcheck="false"></textarea>
-      <p class="hint">Les nouveaux dossiers sont surveillés en direct après un redémarrage de Landry.</p>
+      <p class="hint">{t('Les nouveaux dossiers sont surveillés en direct après un redémarrage de Landry.')}</p>
     </div>
 
     <div class="group">
-      <h2>Développement</h2>
-      <label>Dossier des projets <input bind:value={settings.projects_root} spellcheck="false" /></label>
-      <label>Éditeur <input bind:value={settings.editor} spellcheck="false" /></label>
-      <label>Terminal <input bind:value={settings.terminal} spellcheck="false" /></label>
-      <label>Terminal avec commande <input bind:value={settings.terminal_run} spellcheck="false" /></label>
-      <label>Équipe Vercel (identifiant, facultatif) <input bind:value={settings.vercel_team} spellcheck="false" /></label>
-      <p class="hint">Variables : {'{path}'}, {'{dir}'}, {'{cmd}'}. Chaque variable devient un seul argument, sans passer par un shell.</p>
+      <h2>{t('Développement')}</h2>
+      <label>{t('Dossier des projets')} <input bind:value={settings.projects_root} spellcheck="false" /></label>
+      <label>{t('Éditeur')} <input bind:value={settings.editor} spellcheck="false" /></label>
+      <label>{t('Terminal')} <input bind:value={settings.terminal} spellcheck="false" /></label>
+      <label>{t('Terminal avec commande')} <input bind:value={settings.terminal_run} spellcheck="false" /></label>
+      <label>{t('Équipe Vercel (identifiant, facultatif)')} <input bind:value={settings.vercel_team} spellcheck="false" /></label>
+      <p class="hint">{t('Variables : {a}, {b}, {c}. Chaque variable devient un seul argument, sans passer par un shell.', { a: '{path}', b: '{dir}', c: '{cmd}' })}</p>
     </div>
 
     <div class="group">
-      <h2>Montants</h2>
-      <label>Taux de TVA (%) <input type="number" min="0" max="100" step="0.1" bind:value={settings.vat_rate} /></label>
-      <label>Cotisations micro-entreprise (%) <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_rate} placeholder="à renseigner" /></label>
-      <label>Versement libératoire (%, facultatif) <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_tax_rate} /></label>
-      <p class="hint">Exemples : « 100 ht », « 120 ttc », « ca 3000 ». Les taux changent chaque année : vérifie-les sur le site de l'Urssaf.</p>
+      <h2>{t('Montants')}</h2>
+      <label>{t('Taux de TVA (%)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.vat_rate} /></label>
+      <label>{t('Cotisations micro-entreprise (%)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_rate} placeholder={t('à renseigner')} /></label>
+      <label>{t('Versement libératoire (%, facultatif)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_tax_rate} /></label>
+      <p class="hint">{t("Exemples : « 100 ht », « 120 ttc », « ca 3000 ». Les taux changent chaque année : vérifie-les sur le site de l'Urssaf.")}</p>
     </div>
 
     <div class="group">
-      <h2>Alias</h2>
-      <label for="aliases"><span>Un par ligne : <code>alias = cible</code>. La cible est un texte à chercher, ou l'identifiant d'un élément.</span></label>
+      <h2>{t('Alias')}</h2>
+      <label for="aliases"><span>{t('Un par ligne :')} <code>{t('alias = cible')}</code>{t(". La cible est un texte à chercher, ou l'identifiant d'un élément.")}</span></label>
       <textarea id="aliases" bind:value={aliases} rows="4" placeholder="nc = nacre" spellcheck="false"></textarea>
     </div>
 
     <div class="group">
-      <h2>Traduction</h2>
-      <label>Langue cible par défaut <input bind:value={settings.translate_target} maxlength="5" placeholder="EN" /></label>
-      <label>Serveur LibreTranslate (facultatif) <input bind:value={settings.translate_url} placeholder="https://libretranslate.example/translate" spellcheck="false" /></label>
-      <p class="hint">« tr bonjour » ou « tr de bonjour ». Sans serveur, Landry utilise DeepL avec la clé de l'onglet Comptes.</p>
+      <h2>{t('Traduction')}</h2>
+      <label>{t('Langue cible par défaut')} <input bind:value={settings.translate_target} maxlength="5" placeholder="EN" /></label>
+      <label>{t('Serveur LibreTranslate (facultatif)')} <input bind:value={settings.translate_url} placeholder="https://libretranslate.example/translate" spellcheck="false" /></label>
+      <p class="hint">{t("« tr bonjour » ou « tr de bonjour ». Sans serveur, Landry utilise DeepL avec la clé de l'onglet Comptes.")}</p>
     </div>
 
     <div class="group">
-      <h2>Recherches web</h2>
-      <label for="prefixes"><span>Un par ligne : <code>préfixe = URL</code>, avec {'{q}'} à la place du texte cherché.</span></label>
+      <h2>{t('Recherches web')}</h2>
+      <label for="prefixes"><span>{t('Un par ligne :')} <code>{t('préfixe = URL')}</code>{t(', avec {q} à la place du texte cherché.', { q: '{q}' })}</span></label>
       <textarea id="prefixes" bind:value={prefixes} rows="6" spellcheck="false"></textarea>
     </div>
 
     <div class="bar-actions">
       {#if message}<p class="ok" role="status">{message}</p>{/if}
       {#if failure}<p class="bad" role="alert">{failure}</p>{/if}
-      <button class="primary" onclick={save}>Enregistrer</button>
+      <button class="primary" onclick={save}>{t('Enregistrer')}</button>
     </div>
   </div>
 {/if}
@@ -168,6 +175,7 @@
     color: var(--fg);
   }
   input,
+  select,
   textarea {
     background: color-mix(in srgb, var(--fg) 5%, transparent);
     border: 1px solid var(--border);

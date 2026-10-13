@@ -1,4 +1,5 @@
 <script>
+  import { t } from './lib/i18n.svelte.js';
   import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { styleString } from './lib/theme.js';
@@ -67,7 +68,7 @@
     const entry = presets.find((p) => p.name === name);
     if (entry?.error) {
       draft = null;
-      failure = `Ce preset est invalide : ${entry.error}`;
+      failure = t('Ce preset est invalide : {e}', { e: entry.error });
       return;
     }
     try {
@@ -99,23 +100,23 @@
   }
 
   function uniqueName(base) {
-    let name = `${base} (copie)`;
-    for (let i = 2; presets.some((p) => p.name === name); i++) name = `${base} (copie ${i})`;
+    let name = t('{base} (copie)', { base });
+    for (let i = 2; presets.some((p) => p.name === name); i++) name = t('{base} (copie {i})', { base, i });
     return name;
   }
 
   async function save() {
     const previous = selectedName;
-    const saved = await run(() => invoke('preset_save', { json: JSON.stringify(draft), previous }), 'Preset enregistré.');
+    const saved = await run(() => invoke('preset_save', { json: JSON.stringify(draft), previous }), t('Preset enregistré.'));
     if (saved) {
       await loadList();
       await select(saved.name);
-      message = 'Preset enregistré.';
+      message = t('Preset enregistré.');
     }
   }
 
   async function duplicate() {
-    const p = await run(() => invoke('preset_duplicate', { name: selectedName, newName: uniqueName(selectedName) }), 'Copie créée.');
+    const p = await run(() => invoke('preset_duplicate', { name: selectedName, newName: uniqueName(selectedName) }), t('Copie créée.'));
     if (p) {
       await loadList();
       await select(p.name);
@@ -127,21 +128,21 @@
       confirmDelete = true;
       return;
     }
-    const ok = await run(() => invoke('preset_delete', { name: selectedName }).then(() => true), 'Preset supprimé.');
+    const ok = await run(() => invoke('preset_delete', { name: selectedName }).then(() => true), t('Preset supprimé.'));
     if (ok) {
       await loadList();
       await select('Défaut');
-      message = 'Preset supprimé.';
+      message = t('Preset supprimé.');
     }
   }
 
   async function importFile() {
-    const name = await run(() => invoke('preset_import', { path: importPath }), (n) => `Importé sous le nom « ${n} ».`);
+    const name = await run(() => invoke('preset_import', { path: importPath }), (n) => t('Importé sous le nom « {n} ».', { n }));
     if (name) {
       importPath = '';
       await loadList();
       await select(name);
-      message = `Importé sous le nom « ${name} ».`;
+      message = t('Importé sous le nom « {n} ».', { n: name });
     }
   }
 
@@ -177,16 +178,16 @@
   }
 </script>
 
-<div class="settings" bind:this={root} tabindex="-1" {onkeydown} role="dialog" aria-modal="true" aria-label="Réglages Landry">
+<div class="settings" bind:this={root} tabindex="-1" {onkeydown} role="dialog" aria-modal="true" aria-label={t('Réglages Landry')}>
   <header>
-    <h1>Réglages</h1>
-    <div class="tabs main-tabs" role="tablist" aria-label="Sections">
-      <button role="tab" aria-selected={tab === 'presets'} onclick={() => (tab = 'presets')}>Presets</button>
-      <button role="tab" aria-selected={tab === 'snippets'} onclick={() => (tab = 'snippets')}>Extraits</button>
-      <button role="tab" aria-selected={tab === 'general'} onclick={() => (tab = 'general')}>Général</button>
-      <button role="tab" aria-selected={tab === 'accounts'} onclick={() => (tab = 'accounts')}>Comptes</button>
+    <h1>{t('Réglages')}</h1>
+    <div class="tabs main-tabs" role="tablist" aria-label={t('Sections')}>
+      <button role="tab" aria-selected={tab === 'presets'} onclick={() => (tab = 'presets')}>{t('Presets')}</button>
+      <button role="tab" aria-selected={tab === 'snippets'} onclick={() => (tab = 'snippets')}>{t('Extraits')}</button>
+      <button role="tab" aria-selected={tab === 'general'} onclick={() => (tab = 'general')}>{t('Général')}</button>
+      <button role="tab" aria-selected={tab === 'accounts'} onclick={() => (tab = 'accounts')}>{t('Comptes')}</button>
     </div>
-    <button class="ghost close" onclick={onclose} aria-label="Fermer les réglages">Échap</button>
+    <button class="ghost close" onclick={onclose} aria-label={t('Fermer les réglages')}>{t('Échap')}</button>
   </header>
 
   {#if tab === 'snippets'}
@@ -197,23 +198,23 @@
     <div class="single"><Accounts /></div>
   {:else}
   <div class="columns">
-    <nav aria-label="Presets">
+    <nav aria-label={t('Presets')}>
       <ul>
         {#each presets as p (p.name)}
           <li>
             <button class:current={p.name === selectedName} onclick={() => select(p.name)}>
-              <span class="dot" class:on={p.name === active} title={p.name === active ? 'Preset actif' : ''}></span>
+              <span class="dot" class:on={p.name === active} title={p.name === active ? t('Preset actif') : ''}></span>
               <span class="pname">{p.name}</span>
-              {#if p.builtin}<small>intégré</small>{/if}
-              {#if p.error}<small class="bad">invalide</small>{/if}
+              {#if p.builtin}<small>{t('intégré')}</small>{/if}
+              {#if p.error}<small class="bad">{t('invalide')}</small>{/if}
             </button>
           </li>
         {/each}
       </ul>
       <div class="import">
-        <label for="import-path">Importer un fichier</label>
+        <label for="import-path">{t('Importer un fichier')}</label>
         <input id="import-path" bind:value={importPath} placeholder="~/Téléchargements/preset.json" />
-        <button onclick={importFile} disabled={!importPath.trim()}>Importer</button>
+        <button onclick={importFile} disabled={!importPath.trim()}>{t('Importer')}</button>
       </div>
     </nav>
 
@@ -221,7 +222,7 @@
       {#if draft}
         <div class="preview-frame" style={styleString(draft, colorScheme === 'dark')} aria-hidden="true">
           <div class="mock">
-            <div class="mock-field"><span class="mock-glyph">L</span>Que veux-tu faire ?</div>
+            <div class="mock-field"><span class="mock-glyph">L</span>{t('Que veux-tu faire ?')}</div>
             {#each ['Visual Studio Code', 'Terminal', 'Fichiers'].slice(0, Math.min(3, draft.max_results)) as t, i}
               <div class="mock-row" class:sel={i === 0}><span class="mock-letter">{t[0]}</span>{t}</div>
             {/each}
@@ -230,113 +231,113 @@
 
         <div class="toolbar">
           <div class="tabs" role="tablist">
-            <button role="tab" aria-selected={mode === 'form'} onclick={() => switchMode('form')}>Formulaire</button>
-            <button role="tab" aria-selected={mode === 'json'} onclick={() => switchMode('json')}>JSON</button>
+            <button role="tab" aria-selected={mode === 'form'} onclick={() => switchMode('form')}>{t('Formulaire')}</button>
+            <button role="tab" aria-selected={mode === 'json'} onclick={() => switchMode('json')}>{t('JSON')}</button>
           </div>
           <span class="spacer"></span>
-          {#if dirty}<span class="dirty">Non enregistré</span>{/if}
-          <button onclick={() => run(() => invoke('preset_use', { name: selectedName }), 'Preset activé.')} disabled={selectedName === active || dirty}>Utiliser</button>
-          <button onclick={duplicate}>Dupliquer</button>
+          {#if dirty}<span class="dirty">{t('Non enregistré')}</span>{/if}
+          <button onclick={() => run(() => invoke('preset_use', { name: selectedName }), t('Preset activé.'))} disabled={selectedName === active || dirty}>{t('Utiliser')}</button>
+          <button onclick={duplicate}>{t('Dupliquer')}</button>
           {#if !builtin}
-            <button onclick={() => run(() => invoke('preset_export', { name: selectedName }), (p) => `Exporté dans ${p}`)}>Exporter</button>
-            <button class="danger" onclick={remove}>{confirmDelete ? 'Confirmer la suppression' : 'Supprimer'}</button>
-            <button class="primary" onclick={save} disabled={!dirty || !!jsonError}>Enregistrer</button>
+            <button onclick={() => run(() => invoke('preset_export', { name: selectedName }), (p) => t('Exporté dans {p}', { p }))}>{t('Exporter')}</button>
+            <button class="danger" onclick={remove}>{confirmDelete ? t('Confirmer la suppression') : t('Supprimer')}</button>
+            <button class="primary" onclick={save} disabled={!dirty || !!jsonError}>{t('Enregistrer')}</button>
           {/if}
         </div>
 
-        {#if builtin}<p class="hint">Le preset Défaut est intégré : duplique-le pour le modifier.</p>{/if}
+        {#if builtin}<p class="hint">{t('Le preset Défaut est intégré : duplique-le pour le modifier.')}</p>{/if}
 
         {#if mode === 'json'}
-          <textarea bind:value={jsonText} oninput={onJsonInput} spellcheck="false" aria-label="Preset en JSON" readonly={builtin}></textarea>
+          <textarea bind:value={jsonText} oninput={onJsonInput} spellcheck="false" aria-label={t('Preset en JSON')} readonly={builtin}></textarea>
           {#if jsonError}<p class="bad">{jsonError}</p>{/if}
         {:else}
           <fieldset class="form" disabled={builtin}>
             <div class="group">
-              <h2>Général</h2>
-              <label>Nom <input bind:value={draft.name} maxlength="40" /></label>
-              <label>Thème
+              <h2>{t('Général')}</h2>
+              <label>{t('Nom')} <input bind:value={draft.name} maxlength="40" /></label>
+              <label>{t('Thème')}
                 <select bind:value={draft.theme}>
-                  <option value="system">Suivre le système</option>
-                  <option value="light">Clair</option>
-                  <option value="dark">Sombre</option>
+                  <option value="system">{t('Suivre le système')}</option>
+                  <option value="light">{t('Clair')}</option>
+                  <option value="dark">{t('Sombre')}</option>
                 </select>
               </label>
-              <label>Police <input bind:value={draft.font.family} /></label>
-              <label>Taille du texte <input type="number" min="8" max="48" bind:value={draft.font.size} /></label>
-              <label>Densité
+              <label>{t('Police')} <input bind:value={draft.font.family} /></label>
+              <label>{t('Taille du texte')} <input type="number" min="8" max="48" bind:value={draft.font.size} /></label>
+              <label>{t('Densité')}
                 <select bind:value={draft.density}>
-                  <option value="compact">Compacte</option>
-                  <option value="comfortable">Confortable</option>
-                  <option value="spacious">Aérée</option>
+                  <option value="compact">{t('Compacte')}</option>
+                  <option value="comfortable">{t('Confortable')}</option>
+                  <option value="spacious">{t('Aérée')}</option>
                 </select>
               </label>
-              <label>Opacité <input type="range" min="0.2" max="1" step="0.01" bind:value={draft.opacity} /></label>
-              <label>Animation (ms, 0 = aucune) <input type="number" min="0" max="2000" bind:value={draft.animation_ms} /></label>
+              <label>{t('Opacité')} <input type="range" min="0.2" max="1" step="0.01" bind:value={draft.opacity} /></label>
+              <label>{t('Animation (ms, 0 = aucune)')} <input type="number" min="0" max="2000" bind:value={draft.animation_ms} /></label>
             </div>
 
             <div class="group">
-              <h2>Disposition</h2>
-              <label>Couche
+              <h2>{t('Disposition')}</h2>
+              <label>{t('Couche')}
                 <select bind:value={draft.layout.layer}>
-                  <option value="screen">Écran (position libre)</option>
-                  <option value="window">Fenêtre (plus rapide)</option>
+                  <option value="screen">{t('Écran (position libre)')}</option>
+                  <option value="window">{t('Fenêtre (plus rapide)')}</option>
                 </select>
               </label>
               {#if draft.layout.layer === 'window'}
-                <p class="hint">GNOME place la fenêtre lui-même : ancrage, marge et décalages sont ignorés. Ouverture plus rapide (environ 35 ms contre 80 ms).</p>
+                <p class="hint">{t('GNOME place la fenêtre lui-même : ancrage, marge et décalages sont ignorés. Ouverture plus rapide (environ 35 ms contre 80 ms).')}</p>
               {/if}
-              <label>Ancrage
+              <label>{t('Ancrage')}
                 <select bind:value={draft.layout.anchor} disabled={draft.layout.layer === 'window'}>
-                  <option value="top">En haut</option>
-                  <option value="center">Au centre</option>
-                  <option value="bottom">En bas</option>
+                  <option value="top">{t('En haut')}</option>
+                  <option value="center">{t('Au centre')}</option>
+                  <option value="bottom">{t('En bas')}</option>
                 </select>
               </label>
-              <label>Largeur <input type="number" min="280" max="4000" bind:value={draft.layout.width} /></label>
-              <label>Hauteur max <input type="number" min="60" max="3000" bind:value={draft.layout.max_height} /></label>
-              <label>Décalage horizontal <input type="number" bind:value={draft.layout.offset_x} disabled={draft.layout.layer === 'window'} /></label>
-              <label>Décalage vertical <input type="number" bind:value={draft.layout.offset_y} disabled={draft.layout.layer === 'window'} /></label>
-              <label>Marge au bord <input type="number" min="0" max="2000" bind:value={draft.layout.margin} disabled={draft.layout.layer === 'window'} /></label>
-              <label>Arrondi <input type="number" min="0" max="64" bind:value={draft.layout.radius} /></label>
+              <label>{t('Largeur')} <input type="number" min="280" max="4000" bind:value={draft.layout.width} /></label>
+              <label>{t('Hauteur max')} <input type="number" min="60" max="3000" bind:value={draft.layout.max_height} /></label>
+              <label>{t('Décalage horizontal')} <input type="number" bind:value={draft.layout.offset_x} disabled={draft.layout.layer === 'window'} /></label>
+              <label>{t('Décalage vertical')} <input type="number" bind:value={draft.layout.offset_y} disabled={draft.layout.layer === 'window'} /></label>
+              <label>{t('Marge au bord')} <input type="number" min="0" max="2000" bind:value={draft.layout.margin} disabled={draft.layout.layer === 'window'} /></label>
+              <label>{t('Arrondi')} <input type="number" min="0" max="64" bind:value={draft.layout.radius} /></label>
             </div>
 
             <div class="group">
-              <h2>Résultats</h2>
-              <label>Nombre de résultats <input type="number" min="1" max="50" bind:value={draft.max_results} /></label>
-              <label class="check"><input type="checkbox" bind:checked={draft.preview.visible} /> Panneau d'aperçu</label>
-              <label>Côté de l'aperçu
+              <h2>{t('Résultats')}</h2>
+              <label>{t('Nombre de résultats')} <input type="number" min="1" max="50" bind:value={draft.max_results} /></label>
+              <label class="check"><input type="checkbox" bind:checked={draft.preview.visible} /> {t("Panneau d'aperçu")}</label>
+              <label>{t("Côté de l'aperçu")}
                 <select bind:value={draft.preview.side}>
-                  <option value="right">À droite</option>
-                  <option value="left">À gauche</option>
+                  <option value="right">{t('À droite')}</option>
+                  <option value="left">{t('À gauche')}</option>
                 </select>
               </label>
-              <label>Largeur de l'aperçu (%) <input type="number" min="20" max="70" bind:value={draft.preview.width} /></label>
+              <label>{t("Largeur de l'aperçu (%)")} <input type="number" min="20" max="70" bind:value={draft.preview.width} /></label>
             </div>
 
             <div class="group">
-              <h2>Couleurs</h2>
+              <h2>{t('Couleurs')}</h2>
               <div class="tabs small" role="tablist">
-                <button role="tab" aria-selected={colorScheme === 'light'} onclick={() => (colorScheme = 'light')}>Clair</button>
-                <button role="tab" aria-selected={colorScheme === 'dark'} onclick={() => (colorScheme = 'dark')}>Sombre</button>
+                <button role="tab" aria-selected={colorScheme === 'light'} onclick={() => (colorScheme = 'light')}>{t('Clair')}</button>
+                <button role="tab" aria-selected={colorScheme === 'dark'} onclick={() => (colorScheme = 'dark')}>{t('Sombre')}</button>
               </div>
               {#each COLOR_KEYS as [key, label]}
-                <label class="color">{label}
+                <label class="color">{t(label)}
                   <span>
-                    <input type="color" bind:value={draft[colorScheme][key]} aria-label={`${label}, sélecteur`} />
-                    <input bind:value={draft[colorScheme][key]} maxlength="9" aria-label={`${label}, valeur`} />
+                    <input type="color" bind:value={draft[colorScheme][key]} aria-label={t('{label}, sélecteur', { label: t(label) })} />
+                    <input bind:value={draft[colorScheme][key]} maxlength="9" aria-label={t('{label}, valeur', { label: t(label) })} />
                   </span>
                 </label>
               {/each}
             </div>
 
             <div class="group">
-              <h2>Modules</h2>
+              <h2>{t('Modules')}</h2>
               <ol class="modules">
                 {#each draft.modules as m, i (m.id)}
                   <li>
-                    <label class="check"><input type="checkbox" bind:checked={m.enabled} /> {MODULE_NAMES[m.id] ?? m.id}</label>
-                    <button class="ghost" onclick={() => moveModule(i, -1)} disabled={i === 0} aria-label="Monter">↑</button>
-                    <button class="ghost" onclick={() => moveModule(i, 1)} disabled={i === draft.modules.length - 1} aria-label="Descendre">↓</button>
+                    <label class="check"><input type="checkbox" bind:checked={m.enabled} /> {MODULE_NAMES[m.id] ? t(MODULE_NAMES[m.id]) : m.id}</label>
+                    <button class="ghost" onclick={() => moveModule(i, -1)} disabled={i === 0} aria-label={t('Monter')}>↑</button>
+                    <button class="ghost" onclick={() => moveModule(i, 1)} disabled={i === draft.modules.length - 1} aria-label={t('Descendre')}>↓</button>
                   </li>
                 {/each}
               </ol>

@@ -1,4 +1,5 @@
 <script>
+  import { t } from './lib/i18n.svelte.js';
   import { invoke } from '@tauri-apps/api/core';
 
   const EMPTY = { id: 0, name: '', keyword: '', body: '' };
@@ -31,7 +32,7 @@
       const id = await invoke('snippet_save', { snippet: draft });
       draft.id = id;
       await load();
-      message = 'Extrait enregistré.';
+      message = t('Extrait enregistré.');
     } catch (e) {
       failure = String(e);
     }
@@ -46,7 +47,7 @@
       await invoke('snippet_delete', { id: draft.id });
       await load();
       edit({ ...EMPTY });
-      message = 'Extrait supprimé.';
+      message = t('Extrait supprimé.');
     } catch (e) {
       failure = String(e);
     }
@@ -58,8 +59,8 @@
 </script>
 
 <div class="snippets">
-  <nav aria-label="Extraits">
-    <button class="new" onclick={() => edit({ ...EMPTY })}>Nouvel extrait</button>
+  <nav aria-label={t('Extraits')}>
+    <button class="new" onclick={() => edit({ ...EMPTY })}>{t('Nouvel extrait')}</button>
     <ul>
       {#each list as s (s.id)}
         <li>
@@ -69,32 +70,32 @@
           </button>
         </li>
       {:else}
-        <li class="empty">Aucun extrait pour l'instant.</li>
+        <li class="empty">{t("Aucun extrait pour l'instant.")}</li>
       {/each}
     </ul>
   </nav>
 
   <div class="editor">
     <div class="row">
-      <label>Nom <input bind:value={draft.name} placeholder="Relance devis" /></label>
-      <label>Mot-clé (facultatif) <input bind:value={draft.keyword} placeholder="relance" spellcheck="false" /></label>
+      <label>{t('Nom')} <input bind:value={draft.name} placeholder={t('Relance devis')} /></label>
+      <label>{t('Mot-clé (facultatif)')} <input bind:value={draft.keyword} placeholder={t('relance')} spellcheck="false" /></label>
     </div>
-    <label for="snippet-body">Texte</label>
-    <textarea id="snippet-body" bind:value={draft.body} rows="10" placeholder={'Bonjour {champ:Prénom},\n\nSuite à notre échange du {date}…'}></textarea>
-    <div class="tokens" aria-label="Variables">
-      {#each ['{date}', '{heure}', '{date:%A %d %B}', '{presse-papiers}', '{curseur}', '{champ:Nom}'] as t}
-        <button class="token" onclick={() => insert(t)}>{t}</button>
+    <label for="snippet-body">{t('Texte')}</label>
+    <textarea id="snippet-body" bind:value={draft.body} rows="10" placeholder={t('Bonjour {champ:Prénom},\n\nSuite à notre échange du {date}…')}></textarea>
+    <div class="tokens" aria-label={t('Variables')}>
+      {#each ['{date}', '{heure}', '{date:%A %d %B}', '{presse-papiers}', '{curseur}', '{champ:Nom}'] as token}
+        <button class="token" onclick={() => insert(token)}>{token}</button>
       {/each}
     </div>
     <p class="hint">
-      <code>{'{champ:…}'}</code> est demandé au moment de l'insertion. <code>{'{curseur}'}</code> place le curseur à cet endroit après le collage.
-      Dans la barre : Entrée colle l'extrait dans l'application d'où tu viens, Ctrl+K pour le copier seulement.
+      <code>{'{champ:…}'}</code> {t("est demandé au moment de l'insertion.")} <code>{'{curseur}'}</code>
+      {t("place le curseur à cet endroit après le collage. Dans la barre : Entrée colle l'extrait dans l'application d'où tu viens, Ctrl+K pour le copier seulement.")}
     </p>
     <div class="buttons">
       {#if message}<p class="ok" role="status">{message}</p>{/if}
       {#if failure}<p class="bad" role="alert">{failure}</p>{/if}
-      {#if draft.id}<button class="danger" onclick={remove}>{confirmDelete ? 'Confirmer la suppression' : 'Supprimer'}</button>{/if}
-      <button class="primary" onclick={save} disabled={!draft.name.trim() || !draft.body}>Enregistrer</button>
+      {#if draft.id}<button class="danger" onclick={remove}>{confirmDelete ? t('Confirmer la suppression') : t('Supprimer')}</button>{/if}
+      <button class="primary" onclick={save} disabled={!draft.name.trim() || !draft.body}>{t('Enregistrer')}</button>
     </div>
   </div>
 </div>

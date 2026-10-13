@@ -4,6 +4,7 @@
   import { listen } from '@tauri-apps/api/event';
   import { applyToRoot } from './lib/theme.js';
   import Settings from './Settings.svelte';
+  import { i18n, t } from './lib/i18n.svelte.js';
   import Diff from './Diff.svelte';
   import Notes from './Notes.svelte';
 
@@ -25,6 +26,7 @@
     system: 'Système',
     cloud: 'En ligne',
   };
+  const moduleLabel = (m) => (MODULE_LABELS[m] ? t(MODULE_LABELS[m]) : m);
 
   let preset = $state(null);
   let systemDark = $state(false);
@@ -60,6 +62,7 @@
     systemDark = s.system_dark;
     warning = s.warning ?? '';
     history = s.history;
+    i18n.locale = s.locale;
   }
 
   async function runSearch(q) {
@@ -164,7 +167,7 @@
           query = '';
           break;
         case 'ask':
-          prompt = { item, action: { id: action, title: 'Compléter' }, fields: out.text, values: Object.fromEntries(out.text.map((f) => [f, ''])) };
+          prompt = { item, action: { id: action, title: t('Compléter') }, fields: out.text, values: Object.fromEntries(out.text.map((f) => [f, ''])) };
           tick().then(() => promptInput?.focus());
           return;
         case 'settings':
@@ -185,7 +188,7 @@
           break;
         case 'run':
           if (out.text.silent) query = '';
-          else message = `Exécution : ${out.text.label}…`;
+          else message = t('Exécution : {label}…', { label: out.text.label });
           break;
       }
     } catch (e) {
@@ -314,14 +317,14 @@
             bind:value={query}
             oninput={() => (histPos = -1)}
             {onkeydown}
-            placeholder="Que veux-tu faire ?"
-            aria-label="Recherche"
+            placeholder={t('Que veux-tu faire ?')}
+            aria-label={t('Recherche')}
             aria-controls="results"
             aria-activedescendant={current ? `r-${selected}` : undefined}
             spellcheck="false"
             autocomplete="off"
           />
-          <span class="preset-chip" title="Preset actif">{preset.name}</span>
+          <span class="preset-chip" title={t('Preset actif')}>{preset.name}</span>
         </div>
 
         {#if warning}<p class="notice" role="status">{warning}</p>{/if}
@@ -341,7 +344,7 @@
                 {/if}
               </label>
             {/each}
-            <small>Entrée pour passer au champ suivant puis insérer, Échap pour annuler</small>
+            <small>{t('Entrée pour passer au champ suivant puis insérer, Échap pour annuler')}</small>
           </div>
         {:else if prompt}
           <div class="prompt">
@@ -355,7 +358,7 @@
               spellcheck="false"
               autocomplete="off"
             />
-            <small>Entrée pour valider, Échap pour annuler</small>
+            <small>{t('Entrée pour valider, Échap pour annuler')}</small>
           </div>
         {:else if results.length}
           <div class="body" class:preview-left={preset.preview.side === 'left'}>
@@ -377,13 +380,13 @@
                     <span class="title">{item.title}</span>
                     {#if item.subtitle}<span class="subtitle">{item.subtitle}</span>{/if}
                   </span>
-                  <span class="module">{MODULE_LABELS[item.module] ?? item.module}</span>
+                  <span class="module">{moduleLabel(item.module)}</span>
                 </li>
               {/each}
             </ul>
 
             {#if panel}
-              <div class="actions" role="listbox" aria-label={`Actions pour ${panel.item.title}`}>
+              <div class="actions" role="listbox" aria-label={t('Actions pour {title}', { title: panel.item.title })}>
                 <p class="actions-title">{panel.item.title}</p>
                 {#each panel.actions as a, i (a.id)}
                   <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -395,12 +398,12 @@
                     onmousemove={() => (panel.sel = i)}
                     onclick={() => choose(a)}
                   >
-                    {i === panel.sel && panel.confirm ? 'Entrée pour confirmer : ' : ''}{a.title}{a.arg ? '…' : ''}
+                    {i === panel.sel && panel.confirm ? t('Entrée pour confirmer : ') : ''}{a.title}{a.arg ? '…' : ''}
                   </div>
                 {/each}
               </div>
             {:else if preset.preview.visible && current}
-              <aside class="preview" aria-label="Aperçu">
+              <aside class="preview" aria-label={t('Aperçu')}>
                 {#if previewData?.kind === 'image'}
                   <img class="shot" src={previewData.src} alt={current.title} />
                 {:else}
@@ -415,12 +418,12 @@
                     {#each previewData.rows as [k, v]}<dt>{k}</dt><dd>{v}</dd>{/each}
                   </dl>
                 {/if}
-                <p class="meta">{MODULE_LABELS[current.module] ?? current.module} · Entrée{current.actions?.[0] ? ` : ${current.actions[0].title.toLowerCase()}` : ''}{current.actions?.length > 1 ? ' · Ctrl+K : actions' : ''}</p>
+                <p class="meta">{moduleLabel(current.module)} · {t('Entrée')}{current.actions?.[0] ? ` : ${current.actions[0].title.toLowerCase()}` : ''}{current.actions?.length > 1 ? ` · ${t('Ctrl+K : actions')}` : ''}</p>
               </aside>
             {/if}
           </div>
         {:else if query}
-          <p class="empty">Aucun résultat pour « {query} »</p>
+          <p class="empty">{t('Aucun résultat pour « {q} »', { q: query })}</p>
         {/if}
       </section>
     {/key}

@@ -1,4 +1,5 @@
 <script>
+  import { i18n, t } from './lib/i18n.svelte.js';
   import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { render } from './lib/markdown.js';
@@ -15,7 +16,7 @@
   let editor = $state();
   let timer;
 
-  const title = (body) => (body.split('\n').find((l) => l.trim()) ?? 'Note vide').replace(/^#+\s*/, '').trim();
+  const title = (body) => (body.split('\n').find((l) => l.trim()) ?? t('Note vide')).replace(/^#+\s*/, '').trim();
   const visible = $derived(
     notes.filter((n) => !filter.trim() || n.body.toLowerCase().includes(filter.trim().toLowerCase())),
   );
@@ -46,7 +47,7 @@
     try {
       const id = await invoke('note_save', { id: current.id, body: current.body });
       if (!current.id) current.id = id;
-      saved = 'Enregistré';
+      saved = t('Enregistré');
       notes = await invoke('notes_list');
     } catch (e) {
       failure = String(e);
@@ -70,7 +71,7 @@
 
   function create() {
     flush();
-    current = { id: 0, body: '# Nouvelle note\n\n', updated: 0 };
+    current = { id: 0, body: `# ${t('Nouvelle note')}\n\n`, updated: 0 };
     mode = 'edit';
     setTimeout(() => editor?.focus(), 0);
   }
@@ -102,38 +103,38 @@
   }
 </script>
 
-<div class="notes" role="dialog" aria-modal="true" aria-label="Notes" tabindex="-1" {onkeydown}>
+<div class="notes" role="dialog" aria-modal="true" aria-label={t('Notes')} tabindex="-1" {onkeydown}>
   <header>
-    <h1>Notes</h1>
-    <input class="search" bind:value={filter} placeholder="Chercher dans les notes" aria-label="Chercher dans les notes" />
-    <button onclick={create} title="Ctrl+N">Nouvelle note</button>
-    <button onclick={() => { flush(); onclose(); }} aria-label="Fermer">Échap</button>
+    <h1>{t('Notes')}</h1>
+    <input class="search" bind:value={filter} placeholder={t('Chercher dans les notes')} aria-label={t('Chercher dans les notes')} />
+    <button onclick={create} title={t('Ctrl+N')}>{t('Nouvelle note')}</button>
+    <button onclick={() => { flush(); onclose(); }} aria-label={t('Fermer')}>{t('Échap')}</button>
   </header>
   <div class="columns">
-    <ul class="list" aria-label="Liste des notes">
+    <ul class="list" aria-label={t('Liste des notes')}>
       {#each visible as n (n.id)}
         <li>
           <button class:current={current?.id === n.id} onclick={() => open(n)}>
             <span class="t">{title(n.body)}</span>
-            <small>{new Date(n.updated * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</small>
+            <small>{new Date(n.updated * 1000).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })}</small>
           </button>
         </li>
       {:else}
-        <li class="empty">{filter ? 'Aucune note ne correspond.' : 'Aucune note. Ctrl+N pour commencer.'}</li>
+        <li class="empty">{filter ? t('Aucune note ne correspond.') : t('Aucune note. Ctrl+N pour commencer.')}</li>
       {/each}
     </ul>
     <div class="editor">
       {#if current}
         <div class="toolbar">
           <div class="tabs" role="tablist">
-            <button role="tab" aria-selected={mode === 'edit'} onclick={() => (mode = 'edit')}>Écrire</button>
-            <button role="tab" aria-selected={mode === 'preview'} onclick={() => (mode = 'preview')}>Aperçu</button>
+            <button role="tab" aria-selected={mode === 'edit'} onclick={() => (mode = 'edit')}>{t('Écrire')}</button>
+            <button role="tab" aria-selected={mode === 'preview'} onclick={() => (mode = 'preview')}>{t('Aperçu')}</button>
           </div>
           <span class="state">{saved}</span>
-          {#if current.id}<button class="danger" onclick={remove}>{confirmDelete ? 'Confirmer la suppression' : 'Supprimer'}</button>{/if}
+          {#if current.id}<button class="danger" onclick={remove}>{confirmDelete ? t('Confirmer la suppression') : t('Supprimer')}</button>{/if}
         </div>
         {#if mode === 'edit'}
-          <textarea bind:this={editor} bind:value={current.body} {oninput} spellcheck="true" lang="fr" aria-label="Contenu de la note"></textarea>
+          <textarea bind:this={editor} bind:value={current.body} {oninput} spellcheck="true" lang="fr" aria-label={t('Contenu de la note')}></textarea>
         {:else}
           <!-- render() escapes the note before adding its own tags. -->
           <article class="md">{@html render(current.body)}</article>

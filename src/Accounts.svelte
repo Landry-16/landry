@@ -1,4 +1,5 @@
 <script>
+  import { t } from './lib/i18n.svelte.js';
   import { invoke } from '@tauri-apps/api/core';
 
   let accounts = $state([]);
@@ -21,7 +22,7 @@
       await invoke('set_token', { account: id, token });
       drafts[id] = '';
       await load();
-      message = token ? 'Jeton enregistré dans le trousseau.' : 'Jeton supprimé.';
+      message = token ? t('Jeton enregistré dans le trousseau.') : t('Jeton supprimé.');
     } catch (e) {
       failure = String(e);
     }
@@ -30,28 +31,28 @@
 
 <div class="accounts">
   <p class="intro">
-    Les jetons sont rangés dans le trousseau du système (Secret Service), jamais dans un fichier. Landry ne les affiche pas une fois enregistrés.
+    {t('Les jetons sont rangés dans le trousseau du système (Secret Service), jamais dans un fichier. Landry ne les affiche pas une fois enregistrés.')}
   </p>
   {#each accounts as a (a.id)}
     <div class="account">
       <div class="head">
-        <h2>{a.label}</h2>
-        <span class="state" class:on={a.configured}>{a.configured ? 'Jeton enregistré' : 'Aucun jeton'}</span>
+        <h2>{t(a.label)}</h2>
+        <span class="state" class:on={a.configured}>{a.configured ? t('Jeton enregistré') : t('Aucun jeton')}</span>
       </div>
       <label>
-        {a.configured ? 'Remplacer le jeton' : 'Jeton d’accès'}
-        <input type="password" bind:value={drafts[a.id]} autocomplete="off" spellcheck="false" placeholder={{ github: 'ghp_… (droits : repo, read:org)', vercel: 'Jeton Vercel', translate: 'Clé DeepL (…:fx) ou clé LibreTranslate' }[a.id]} />
+        {a.configured ? t('Remplacer le jeton') : t('Jeton d’accès')}
+        <input type="password" bind:value={drafts[a.id]} autocomplete="off" spellcheck="false" placeholder={t({ github: 'ghp_… (droits : repo, read:org)', vercel: 'Jeton Vercel', translate: 'Clé DeepL (…:fx) ou clé LibreTranslate' }[a.id])} />
       </label>
       <div class="buttons">
-        {#if a.configured}<button class="danger" onclick={() => save(a.id, '')}>Supprimer</button>{/if}
-        <button class="primary" disabled={!drafts[a.id]?.trim()} onclick={() => save(a.id, drafts[a.id])}>Enregistrer</button>
+        {#if a.configured}<button class="danger" onclick={() => save(a.id, '')}>{t('Supprimer')}</button>{/if}
+        <button class="primary" disabled={!drafts[a.id]?.trim()} onclick={() => save(a.id, drafts[a.id])}>{t('Enregistrer')}</button>
       </div>
       <p class="hint">
-        {{
+        {t({
           github: 'Utilisé par « pr » (tes pull requests et leur CI) et « issues » (issues assignées).',
           vercel: 'Utilisé par « vercel » (déploiements, logs, redéploiement).',
           translate: 'Utilisé par « tr <texte> ». Le texte à traduire est envoyé au service choisi.',
-        }[a.id]}
+        }[a.id])}
       </p>
     </div>
   {/each}
