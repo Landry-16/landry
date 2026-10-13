@@ -31,6 +31,11 @@ describe('theme', () => {
     expect(v['--anim']).toBe('0ms');
   });
 
+  it('fills the style block of older presets', () => {
+    expect(cssVars(preset, true)['--tint']).toBe('#7c6cf0');
+    expect(cssVars({ ...preset, style: { tint: '#c8102e' } }, true)['--tint']).toBe('#c8102e');
+  });
+
   it('falls back to comfortable density', () => {
     expect(cssVars({ ...preset, density: 'unknown' }, false)['--row']).toBe('48px');
   });

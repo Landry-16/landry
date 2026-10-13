@@ -2,7 +2,7 @@
 // Open http://localhost:1420/dev/mock.html with `npm run dev`. Never shipped (not in index.html).
 (() => {
   const presets = structuredClone(window.LANDRY_PRESETS);
-  let active = 'Défaut';
+  let active = new URLSearchParams(location.search).get('preset') ?? 'Défaut';
   let notes = [{ id: 1, body: '# Idées pour Landry\n\n- [x] Presets\n- [ ] **Thèmes** saisonniers\n- Voir [Raycast](https://raycast.com)\n\n> Rester simple.\n\n```\nlandry toggle\n```', updated: Date.now() / 1000 - 3600 }, { id: 2, body: '# Courses\nPain, café', updated: Date.now() / 1000 - 86400 }];
   const callbacks = new Map();
   const listeners = {};

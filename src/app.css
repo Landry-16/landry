@@ -5,7 +5,7 @@ body {
   background: transparent;
   overflow: hidden;
   font-family: var(--font, system-ui, sans-serif);
-  font-size: var(--font-size, 15px);
+  font-size: calc(var(--font-size, 15px) * var(--zoom, 1));
   -webkit-font-smoothing: antialiased;
 }
 

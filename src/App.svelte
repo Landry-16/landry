@@ -2,7 +2,11 @@
   import { tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
-  import { applyToRoot } from './lib/theme.js';
+  import { applyToRoot, styleOf } from './lib/theme.js';
+  import Companion from './Companion.svelte';
+  import Ornaments from './Ornaments.svelte';
+  import Particles from './Particles.svelte';
+  import Help from './Help.svelte';
   import Settings from './Settings.svelte';
   import { i18n, t } from './lib/i18n.svelte.js';
   import Diff from './Diff.svelte';
@@ -55,6 +59,54 @@
   let previewSeq = 0;
 
   const current = $derived(results[selected]);
+  const style = $derived(preset ? styleOf(preset) : null);
+  let help = $state(false);
+
+  // Companion mood. Short reactions (arrive, joy, error) win for a moment, then the bar's state decides.
+  let clock = $state(0);
+  let flash = $state(null);
+  let typingAt = 0;
+  let pointAt = 0;
+  let asleep = $state(false);
+  let sleepTimer;
+  const tick_ = (ms) => {
+    clock = performance.now();
+    setTimeout(() => (clock = performance.now()), ms + 20);
+  };
+  function react(mood, ms) {
+    flash = { mood, until: performance.now() + ms };
+    tick_(ms);
+  }
+  function wake() {
+    asleep = false;
+    clearTimeout(sleepTimer);
+    sleepTimer = setTimeout(() => (asleep = true), 30000);
+  }
+  const mood = $derived.by(() => {
+    if (flash && flash.until > clock) return flash.mood;
+    if (asleep) return 'sleep';
+    if (query && !results.length && !prompt) return 'lost';
+    if (clock - pointAt < 1400) return 'point';
+    if (clock - typingAt < 1400) return 'listen';
+    return 'idle';
+  });
+
+  // Read by screen readers after each search; the selected row is read through aria-activedescendant.
+  const announce = $derived(
+    !query ? '' : results.length === 0 ? t('Aucun résultat') : results.length === 1 ? t('1 résultat') : t('{n} résultats', { n: results.length }),
+  );
+
+  // Ctrl+plus / Ctrl+minus: text size for this viewer, kept across sessions.
+  let zoom = $state(1);
+  try {
+    zoom = Number(localStorage.getItem('landry.zoom')) || 1;
+  } catch {}
+  $effect(() => {
+    document.documentElement.style.setProperty('--zoom', String(zoom));
+    try {
+      localStorage.setItem('landry.zoom', String(zoom));
+    } catch {}
+  });
 
   async function refresh() {
     const s = await invoke('ui_state');
@@ -109,6 +161,7 @@
 
   function resetBar() {
     view = 'bar';
+    help = false;
     query = '';
     error = '';
     message = '';
@@ -127,6 +180,8 @@
       listen('landry://shown', () => {
         resetBar();
         shownCount++;
+        react('arrive', 360);
+        wake();
         // The keyed block re-creates the input: focus the new one once rendered.
         focusInput();
         // Two frames: the first is queued with the show, the second proves it was painted.
@@ -160,6 +215,7 @@
     prompt = null;
     try {
       const out = await invoke('activate', { id: item.id, action, arg, query });
+      if (out.kind === 'message' || out.kind === 'keep') react('joy', 900);
       switch (out.kind) {
         case 'hide':
         case 'copy':
@@ -177,7 +233,8 @@
           query = out.text;
           break;
         case 'view':
-          openView(out.text);
+          if (out.text === 'help') help = true;
+          else openView(out.text);
           break;
         case 'message':
           message = out.text;
@@ -193,6 +250,7 @@
       }
     } catch (e) {
       error = String(e);
+      react('error', 1400);
     }
     focusInput();
   }
@@ -237,7 +295,27 @@
   }
 
   function onkeydown(e) {
+    wake();
+    if (e.key === 'F1') {
+      e.preventDefault();
+      help = !help;
+      return;
+    }
+    if (e.ctrlKey && ['+', '=', '-', '0'].includes(e.key)) {
+      e.preventDefault();
+      zoom = e.key === '0' ? 1 : Math.min(1.6, Math.max(0.8, Math.round((zoom + (e.key === '-' ? -0.1 : 0.1)) * 10) / 10));
+      return;
+    }
+    if (help && e.key === 'Escape') {
+      e.preventDefault();
+      help = false;
+      return;
+    }
     if (panel) return panelKeys(e);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      pointAt = performance.now();
+      tick_(1400);
+    }
     const browsing = histPos >= 0;
     if (e.key === 'k' && e.ctrlKey) {
       e.preventDefault();
@@ -309,13 +387,25 @@
     <Notes onclose={backToBar} {noteId} />
   {:else if preset}
     {#key shownCount}
+      <div class="frame">
+      <Ornaments ornament={style.ornament} />
       <section class="bar" aria-label="Landry">
+        <Particles count={style.particles} ornament={style.ornament} />
         <div class="field">
-          <span class="glyph" aria-hidden="true">L</span>
+          {#if style.companion}
+            <Companion {mood} />
+          {:else}
+            <span class="glyph" aria-hidden="true">L</span>
+          {/if}
           <input
             bind:this={input}
             bind:value={query}
-            oninput={() => (histPos = -1)}
+            oninput={() => {
+              histPos = -1;
+              help = false;
+              typingAt = performance.now();
+              tick_(1400);
+            }}
             {onkeydown}
             placeholder={t('Que veux-tu faire ?')}
             aria-label={t('Recherche')}
@@ -331,7 +421,14 @@
         {#if message}<p class="notice" role="status">{message}</p>{/if}
         {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
-        {#if prompt?.fields}
+        <p class="sr-only" aria-live="polite">{announce}</p>
+
+        {#if help}
+          <Help onclose={() => {
+            help = false;
+            focusInput();
+          }} />
+        {:else if prompt?.fields}
           <div class="prompt">
             <p class="prompt-title">{prompt.item.title}</p>
             {#each prompt.fields as f, i (f)}
@@ -424,8 +521,20 @@
           </div>
         {:else if query}
           <p class="empty">{t('Aucun résultat pour « {q} »', { q: query })}</p>
+          <p class="empty hint">{t("Essaie / pour la liste des commandes, ou F1 pour l'aide.")}</p>
+        {:else}
+          <p class="empty hint">{t('Une application, un fichier, un calcul, « / » pour les commandes. F1 : aide.')}</p>
+        {/if}
+        {#if results.length && !help && !prompt}
+          <footer class="keys" aria-hidden="true">
+            <span><kbd>↵</kbd> {current?.actions?.[0]?.title ?? t('Ouvrir')}</span>
+            <span><kbd>Ctrl K</kbd> {t('actions')}</span>
+            <span><kbd>/</kbd> {t('commandes')}</span>
+            <span><kbd>F1</kbd> {t('aide')}</span>
+          </footer>
         {/if}
       </section>
+      </div>
     {/key}
   {/if}
 </div>
@@ -454,7 +563,7 @@
     align-items: flex-start;
     padding: 32px 0 0;
   }
-  :global(:root[data-layer='window']) .bar {
+  :global(:root[data-layer='window']) .frame {
     transform: none;
   }
 
@@ -463,10 +572,20 @@
     padding: 0;
   }
 
-  .bar {
+  .frame {
+    position: relative;
     width: min(var(--width), calc(100vw - 32px));
     max-height: var(--max-height);
     transform: translate(var(--offset-x), var(--offset-y));
+    animation: rise var(--anim) cubic-bezier(0.2, 0.9, 0.3, 1);
+    display: flex;
+  }
+  .bar {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-width: 0;
+    max-height: var(--max-height);
     display: flex;
     flex-direction: column;
     color: var(--fg);
@@ -477,7 +596,11 @@
       0 1px 0 color-mix(in srgb, var(--fg) 8%, transparent) inset,
       0 28px 80px rgb(0 0 0 / 0.38);
     overflow: hidden;
-    animation: rise var(--anim) cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  /* Results and fields above the particles. */
+  .bar > :global(:not(.particles)) {
+    position: relative;
+    z-index: 1;
   }
   @keyframes rise {
     from {
@@ -660,8 +783,53 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .bar {
+    .frame {
       animation: none;
+    }
+  }
+  :global(:root[data-still]) .frame {
+    animation: none;
+  }
+  .sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .empty.hint {
+    padding-top: 0;
+    font-size: 0.85em;
+  }
+  .field + .empty.hint {
+    padding-top: calc(var(--pad) + 10px);
+  }
+  .keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 6px calc(var(--pad) + 8px);
+    border-top: 1px solid var(--border);
+    font-size: 0.72em;
+    color: var(--muted);
+  }
+  kbd {
+    font: inherit;
+    font-size: 0.95em;
+    padding: 0 5px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: var(--fg);
+  }
+  @media (forced-colors: active) {
+    .bar {
+      border: 2px solid CanvasText;
+    }
+    li[aria-selected='true'] {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
     }
   }
 

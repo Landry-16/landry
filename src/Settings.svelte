@@ -2,7 +2,8 @@
   import { t } from './lib/i18n.svelte.js';
   import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { styleString } from './lib/theme.js';
+  import { styleString, STYLE } from './lib/theme.js';
+  import Companion from './Companion.svelte';
   import { contrast } from './lib/contrast.js';
   import GeneralSettings from './GeneralSettings.svelte';
   import Accounts from './Accounts.svelte';
@@ -85,6 +86,7 @@
     }
     try {
       draft = await invoke('preset_get', { name });
+      draft.style = { ...STYLE, ...draft.style };
       original = JSON.stringify(draft);
       jsonText = JSON.stringify(draft, null, 2);
       jsonError = '';
@@ -234,7 +236,10 @@
       {#if draft}
         <div class="preview-frame" style={styleString(draft, colorScheme === 'dark')} aria-hidden="true">
           <div class="mock">
-            <div class="mock-field"><span class="mock-glyph">L</span>{t('Que veux-tu faire ?')}</div>
+            <div class="mock-field">
+              {#if draft.style.companion}<Companion mood="idle" />{:else}<span class="mock-glyph">L</span>{/if}
+              {t('Que veux-tu faire ?')}
+            </div>
             {#each ['Visual Studio Code', 'Terminal', 'Fichiers'].slice(0, Math.min(3, draft.max_results)) as t, i}
               <div class="mock-row" class:sel={i === 0}><span class="mock-letter">{t[0]}</span>{t}</div>
             {/each}
@@ -347,6 +352,28 @@
                   </span>
                 </label>
               {/each}
+            </div>
+
+            <div class="group">
+              <h2>{t('Style')}</h2>
+              <label class="check"><input type="checkbox" bind:checked={draft.style.companion} /> {t('Compagnon (la vouivre)')}</label>
+              <label>{t('Ornement')}
+                <select bind:value={draft.style.ornament}>
+                  <option value="none">{t('Aucun')}</option>
+                  <option value="baroque">{t('Baroque (cimier, roses)')}</option>
+                  <option value="silk">{t('Soie (perle, nuages)')}</option>
+                  <option value="fresco">{t('Fresque (soleil, encre)')}</option>
+                  <option value="pixel">{t('Pixel (coins)')}</option>
+                </select>
+              </label>
+              <label>{t('Particules')} <input type="range" min="0" max="40" step="1" bind:value={draft.style.particles} aria-valuetext={String(draft.style.particles)} /></label>
+              <label class="color">{t('Couleur secondaire')}
+                <span>
+                  <input type="color" bind:value={draft.style.tint} aria-label={t('{label}, sélecteur', { label: t('Couleur secondaire') })} />
+                  <input bind:value={draft.style.tint} maxlength="9" aria-label={t('{label}, valeur', { label: t('Couleur secondaire') })} />
+                </span>
+              </label>
+              <p class="hint">{t("La couleur secondaire sert aux ailes de la vouivre, aux ornements et aux particules. L'ornement déborde du cadre : il se voit mieux en couche Écran.")}</p>
             </div>
 
             <div class="group">

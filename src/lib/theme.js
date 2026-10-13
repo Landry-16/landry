@@ -6,6 +6,10 @@ export const DENSITY = {
   spacious: { pad: 14, gap: 6, row: 58 },
 };
 
+/** Missing in presets written before the style block existed. */
+export const STYLE = { companion: true, ornament: 'none', particles: 6, tint: '#7c6cf0' };
+export const styleOf = (preset) => ({ ...STYLE, ...preset.style });
+
 export function isDark(preset, systemDark) {
   return preset.theme === 'dark' || (preset.theme === 'system' && systemDark);
 }
@@ -35,6 +39,7 @@ export function cssVars(preset, systemDark) {
     '--gap': `${d.gap}px`,
     '--row': `${d.row}px`,
     '--preview-width': `${preset.preview.width}%`,
+    '--tint': styleOf(preset).tint,
   };
 }
 
@@ -50,4 +55,7 @@ export function applyToRoot(preset, systemDark, root = document.documentElement)
   root.dataset.anchor = preset.layout.anchor;
   root.dataset.layer = preset.layout.layer;
   root.dataset.scheme = isDark(preset, systemDark) ? 'dark' : 'light';
+  root.dataset.ornament = styleOf(preset).ornament;
+  // animation_ms = 0: nothing moves, the companion only changes pose.
+  root.toggleAttribute('data-still', preset.animation_ms === 0);
 }
