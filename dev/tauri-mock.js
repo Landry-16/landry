@@ -70,6 +70,10 @@
       return x.map((l, i) => (l === y[i] ? { tag: 'eq', text: l } : { tag: 'del', text: l })).concat(y.filter((l, i) => l !== x[i]).map((text) => ({ tag: 'ins', text })));
     },
     copy_text: () => null,
+    get_settings: () => ({ version: 1, active_preset: active, locale: 'fr', aliases: { nc: 'nacre' }, search_prefixes: { g: 'https://www.google.com/search?q={q}', gh: 'https://github.com/search?q={q}' }, file_roots: [], projects_root: '~/dev', editor: 'code {path}', terminal: 'gnome-terminal --working-directory={dir}', terminal_run: 'gnome-terminal --working-directory={dir} -- bash -lc {cmd}', vercel_team: '' }),
+    save_settings: () => null,
+    accounts: () => [{ id: 'github', label: 'GitHub', configured: true }, { id: 'vercel', label: 'Vercel', configured: false }],
+    set_token: () => null,
     painted: () => null,
     hide: () => console.log('[mock] hide'),
     settings_layer: () => null,

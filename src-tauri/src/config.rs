@@ -335,6 +335,8 @@ pub struct Settings {
     pub editor: String,
     pub terminal: String,
     pub terminal_run: String,
+    /// Vercel team id for team projects; empty for a personal account.
+    pub vercel_team: String,
 }
 
 impl Default for Settings {
@@ -358,6 +360,7 @@ impl Default for Settings {
             editor: "code {path}".into(),
             terminal: "gnome-terminal --working-directory={dir}".into(),
             terminal_run: "gnome-terminal --working-directory={dir} -- bash -lc {cmd}".into(),
+            vercel_team: String::new(),
         }
     }
 }

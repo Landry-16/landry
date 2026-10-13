@@ -340,6 +340,49 @@ fn diff_texts(a: String, b: String) -> Vec<DiffLine> {
         .collect()
 }
 
+#[derive(Serialize)]
+struct Account {
+    id: &'static str,
+    label: &'static str,
+    configured: bool,
+}
+
+/// Which accounts have a token in the keyring (never the tokens themselves).
+#[tauri::command]
+fn accounts() -> Vec<Account> {
+    modules::cloud::ACCOUNTS
+        .iter()
+        .map(|(id, label)| Account { id, label, configured: modules::cloud::token(id).is_some() })
+        .collect()
+}
+
+#[tauri::command]
+fn get_settings(state: State<EngineState>) -> config::Settings {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).settings.clone()
+}
+
+/// Save global settings, then re-index projects and files in the background.
+/// shortcut: the file watcher keeps the folders it had at startup; restart Landry to watch new ones.
+#[tauri::command]
+fn save_settings(app: AppHandle, settings: config::Settings) -> Result<(), String> {
+    engine(&app).save_settings(settings.clone())?;
+    let h = app.clone();
+    std::thread::spawn(move || {
+        let projects = modules::projects::scan(&settings, true);
+        let files = modules::files::scan(&settings);
+        let mut e = engine(&h);
+        e.set_index("projects", projects);
+        e.set_index("files", files);
+    });
+    Ok(())
+}
+
+/// Empty token removes it.
+#[tauri::command]
+fn set_token(account: String, token: String) -> Result<(), String> {
+    modules::cloud::set_token(&account, &token)
+}
+
 #[tauri::command]
 fn copy_text(app: AppHandle, text: String) {
     set_clipboard(&app, text);
@@ -585,6 +628,10 @@ fn daemon() {
             preview,
             diff_texts,
             copy_text,
+            accounts,
+            set_token,
+            get_settings,
+            save_settings,
             painted,
             hide,
             settings_layer,
@@ -605,6 +652,10 @@ fn daemon() {
             std::thread::spawn(move || index_apps(&h));
             let h = app.handle().clone();
             std::thread::spawn(move || index_others(&h));
+            let h = app.handle().clone();
+            modules::cloud::on_update(move || {
+                let _ = h.emit("landry://refresh", ());
+            });
             let h = app.handle().clone();
             std::thread::spawn(move || watch_theme(h));
             Ok(())

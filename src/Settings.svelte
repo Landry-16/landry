@@ -2,10 +2,20 @@
   import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { styleString } from './lib/theme.js';
+  import GeneralSettings from './GeneralSettings.svelte';
+  import Accounts from './Accounts.svelte';
 
   let { active, systemDark, onclose } = $props();
 
-  const MODULE_NAMES = { commands: 'Commandes Landry', apps: 'Applications' };
+  const MODULE_NAMES = {
+    commands: 'Commandes Landry',
+    apps: 'Applications',
+    tools: 'Boîte à outils',
+    projects: 'Projets git',
+    files: 'Fichiers',
+    system: 'Ports, SSH, Docker',
+    cloud: 'GitHub et Vercel',
+  };
   const COLOR_KEYS = [
     ['bg', 'Fond'],
     ['fg', 'Texte'],
@@ -15,6 +25,7 @@
     ['border', 'Bordure'],
   ];
 
+  let tab = $state('presets');
   let presets = $state([]);
   let selectedName = $state(untrack(() => active));
   let draft = $state(null);
@@ -159,10 +170,19 @@
 <div class="settings" bind:this={root} tabindex="-1" {onkeydown} role="dialog" aria-modal="true" aria-label="Réglages Landry">
   <header>
     <h1>Réglages</h1>
-    <p>Presets : apparence, disposition et modules de la barre.</p>
+    <div class="tabs main-tabs" role="tablist" aria-label="Sections">
+      <button role="tab" aria-selected={tab === 'presets'} onclick={() => (tab = 'presets')}>Presets</button>
+      <button role="tab" aria-selected={tab === 'general'} onclick={() => (tab = 'general')}>Général</button>
+      <button role="tab" aria-selected={tab === 'accounts'} onclick={() => (tab = 'accounts')}>Comptes</button>
+    </div>
     <button class="ghost close" onclick={onclose} aria-label="Fermer les réglages">Échap</button>
   </header>
 
+  {#if tab === 'general'}
+    <div class="single"><GeneralSettings /></div>
+  {:else if tab === 'accounts'}
+    <div class="single"><Accounts /></div>
+  {:else}
   <div class="columns">
     <nav aria-label="Presets">
       <ul>
@@ -315,6 +335,7 @@
       {#if failure}<p class="bad" role="alert">{failure}</p>{/if}
     </div>
   </div>
+  {/if}
 </div>
 
 <style>
@@ -343,15 +364,20 @@
     font-size: 1.5em;
     letter-spacing: -0.02em;
   }
-  header p {
-    margin: 2px 0 0;
-    color: var(--muted);
+  .main-tabs {
     grid-column: 1;
+    justify-self: start;
+    margin-top: 10px;
   }
   .close {
     grid-row: 1 / 3;
     grid-column: 2;
     align-self: center;
+  }
+  .single {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
   }
   .columns {
     display: grid;

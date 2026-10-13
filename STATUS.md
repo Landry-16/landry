@@ -1,6 +1,6 @@
 # STATUS
 
-Phase courante : **Phase 1, cœur**
+Phase courante : **Phase 3, texte et calcul**
 
 ## Phase 0 : focus et raccourci
 - [x] Binaire unique `landry` : `landry daemon` (processus résident), `landry [toggle|show|hide|ping|quit]` (CLI)
@@ -23,8 +23,20 @@ Phase courante : **Phase 1, cœur**
 - [x] Alias (settings.json, `aliases`) : l'élément ciblé passe en tête
 - [ ] Vérification visuelle sur le vrai bureau (seulement vérifié dans un navigateur avec une maquette de l'API Tauri, `dev/mock.html`)
 
+## Phase 2 : fichiers, outils développeur, boîte à outils
+- [x] Actions secondaires (Ctrl+K), saisie d'argument, confirmation en deux temps des actions destructrices, messages, copie (presse-papiers GTK), aperçu à la demande (texte, image, propriétés)
+- [x] Fichiers : index des dossiers XDG (ou `file_roots`), récents GTK, favoris GTK, surveillance `notify` (réindexation après 2 s de calme), filtres `img:` `pdf:` `doc:` `vid:` `audio:` `code:` `zip:` `dir:` et `<7j` `<2s` `<3m` `<1a`
+- [x] Actions fichiers : ouvrir, afficher dans le dossier, terminal ici, copier le chemin, renommer, déplacer, compresser (.zip), corbeille, ouvrir avec (applications recommandées)
+- [x] Projets git sous `projects_root` : branche, état (modifiés, retard, avance), éditeur, terminal, git pull, dépôt en ligne, ouvrir une PR, scripts npm
+- [x] Ports occupés (`port`, `port 5173`), arrêt du processus ; hôtes SSH ; Docker (`docker`) : démarrer, arrêter, redémarrer, logs, shell
+- [x] GitHub (`pr`, `ci`, `issues`) et Vercel (`vercel`) : jetons dans le trousseau, chargement en arrière-plan, cache 60 s, redéploiement confirmé
+- [x] Boîte à outils : uuid, b64, b64d, url, urld, json, jsonmin, sha256, sha1, md5, jwt, ts, regex, couleurs (#hex, rgb, hsl, oklch), contraste, pipette (portail), comparer deux textes
+- [x] Réglages : onglets Général (dossiers, projets, éditeur, terminal, alias, préfixes, équipe Vercel) et Comptes (jetons)
+- [x] `landry search <texte>` dans la CLI
+- [ ] Non testé avec de vrais jetons GitHub et Vercel (aucun jeton sur la machine) ; pipette et presse-papiers non testés à la main
+
 ## Prochaine étape
-Phase 2, étape 1 : module `src-tauri/src/files.rs` (index des dossiers choisis dans settings.json `file_roots`, surveillance `notify`, filtres `img:` `pdf:` et date), branché comme module `files` dans `engine.rs::candidates`. Puis panneau d'actions secondaires (Ctrl+K) dans `App.svelte`, nécessaire aux actions sur fichiers.
+Phase 3, étape 1 : module `src-tauri/src/modules/calc.rs` (calculatrice et unités avec `fend-core`, devises BCE en cache, dates et fuseaux avec `chrono-tz`, montants HT/TTC et cotisations avec taux dans settings.json), branché dans `modules::query`. Puis `modules/snippets.rs` (extraits SQLite, variables) et collage automatique via le portail RemoteDesktop (feature ashpd `remote_desktop` + `screencast`).
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -48,6 +60,10 @@ Première ouverture après démarrage : 270 à 780 ms (vue web froide).
 - Alias, préfixes de recherche et langue dans `settings.json` (global) ; apparence, disposition et modules dans les presets.
 - Couleurs validées en hexadécimal uniquement (pas d'injection CSS possible depuis un preset).
 - Import et export sans boîte de dialogue : export dans le dossier Téléchargements, import par chemin saisi.
+- Alias : la cible est soit l'identifiant d'un élément (mis en tête), soit un texte qui remplace la requête.
+- Les résultats dont le score est inférieur au tiers du meilleur sont écartés (moins de bruit).
+- Mots-clés `pr`, `ci`, `issues`, `vercel` pour les services en ligne ; `gh` reste réservé à la recherche web de la phase 5.
+- Actions système (verrouiller, volume...) et ouverture des panneaux de réglages GNOME : absentes de la liste du prompt, non faites.
 - Textes de l'interface en dur en français pour l'instant ; extraction en dictionnaires FR/EN prévue en phase 6.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.
 

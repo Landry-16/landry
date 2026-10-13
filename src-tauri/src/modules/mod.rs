@@ -1,5 +1,6 @@
 //! Modules: what each kind of item can do.
 
+pub mod cloud;
 pub mod color;
 pub mod files;
 pub mod projects;
@@ -33,6 +34,9 @@ pub fn query(enabled: &[String], settings: &Settings, q: &str) -> Vec<Item> {
     if enabled.iter().any(|m| m == "system") {
         out.extend(system::query(settings, q));
     }
+    if enabled.iter().any(|m| m == "cloud") {
+        out.extend(cloud::query(settings, q));
+    }
     out
 }
 
@@ -61,6 +65,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "files" => files::run(settings, item, action, arg),
         "projects" => projects::run(settings, item, action, arg),
         "system" => system::run(settings, item, action, arg),
+        "cloud" => cloud::run(settings, item, action),
         "tools" => match action {
             "copy" => Ok(Outcome::Copy(item.data.clone())),
             "fill" => Ok(Outcome::Fill(item.data.clone())),

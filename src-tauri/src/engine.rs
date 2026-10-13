@@ -133,6 +133,12 @@ impl Engine {
     }
 
     pub fn search(&mut self, query: &str) -> Vec<Item> {
+        // An alias pointing at text (not an item id) stands for that query.
+        let alias = self.settings.aliases.get(query.trim()).cloned();
+        let query = match &alias {
+            Some(t) if items_by_id(&self.index, &self.command_items(), t).is_none() => t.as_str(),
+            _ => query,
+        };
         let limit = self.preset.max_results as usize;
         let enabled = self.enabled();
         let (text, filter) = files::parse_filters(query);
@@ -168,8 +174,8 @@ impl Engine {
             v.truncate(limit);
             v
         };
-        // An alias puts its target first, whatever the score.
-        if let Some(target) = self.settings.aliases.get(query.trim()) {
+        // An alias pointing at an item puts it first, whatever the score.
+        if let Some(target) = &alias {
             if let Some(it) = items_by_id(&self.index, &self.command_items(), target) {
                 ranked.retain(|i| i.id != it.id);
                 ranked.insert(0, it);
@@ -245,6 +251,12 @@ impl Engine {
         Ok((first.title, outcome))
     }
 
+    pub fn save_settings(&mut self, s: Settings) -> Result<(), String> {
+        self.store.save_settings(&s)?;
+        self.settings = s;
+        Ok(())
+    }
+
     pub fn use_preset(&mut self, name: &str) -> Result<(), String> {
         self.preset = self.store.set_active(name)?;
         self.warning = None;
@@ -308,6 +320,8 @@ mod tests {
         let (mut e, dir) = engine();
         e.settings.aliases.insert("t".into(), "app:t.desktop".into());
         assert_eq!(e.search("t")[0].id, "app:t.desktop");
+        e.settings.aliases.insert("ed".into(), "visual studio".into());
+        assert_eq!(e.search("ed")[0].id, "app:code.desktop");
         assert_eq!(e.activate("cmd:preset:Minimal", "", "", "min").unwrap(), Outcome::Keep);
         assert_eq!(e.preset.name, "Minimal");
         assert_eq!(e.store.settings().0.active_preset, "Minimal");

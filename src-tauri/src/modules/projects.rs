@@ -152,6 +152,7 @@ fn item(repo: &Path, with_status: bool) -> Item {
     ];
     if origin(repo).as_deref().and_then(web_url).is_some() {
         actions.push(Action::new("web", "Ouvrir le dépôt en ligne"));
+        actions.push(Action::new("pr", "Ouvrir une pull request"));
     }
     actions.push(Action::new("reveal", "Ouvrir le dossier"));
     actions.push(Action::new("copy-path", "Copier le chemin"));
@@ -198,6 +199,11 @@ pub fn run(settings: &Settings, item: &Item, action: &str, _arg: &str) -> Result
         "web" => {
             let url = origin(repo).as_deref().and_then(web_url).ok_or("pas de dépôt distant origin")?;
             util::open(&url)?;
+            Outcome::Hide
+        }
+        "pr" => {
+            let url = origin(repo).as_deref().and_then(web_url).ok_or("pas de dépôt distant origin")?;
+            util::open(&format!("{url}/compare/{}?expand=1", branch(repo)))?;
             Outcome::Hide
         }
         "reveal" => {

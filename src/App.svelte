@@ -13,6 +13,7 @@
     projects: 'Projet',
     files: 'Fichier',
     system: 'Système',
+    cloud: 'En ligne',
   };
 
   let preset = $state(null);
@@ -124,6 +125,8 @@
         focusInput();
       }),
       listen('landry://view', (e) => (view = e.payload)),
+      // Background data (GitHub, Vercel) arrived: search again.
+      listen('landry://refresh', () => view === 'bar' && runSearch(query)),
     ];
     return () => subs.forEach((p) => p.then((f) => f()));
   });
