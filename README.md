@@ -51,6 +51,7 @@ Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
 
 ## Dans la barre
 
+- F1 : aide (raccourcis et exemples). Ctrl+plus et Ctrl+moins : taille du texte, gardée d'une ouverture à l'autre.
 - Entrée : action principale. Ctrl+K : toutes les actions de l'élément. Tab : compléter. Flèche du haut sur une barre vide : historique. Échap : effacer, puis fermer. Ctrl+, : réglages.
 - Les actions destructrices (corbeille, arrêt d'un processus, redéploiement) demandent un deuxième Entrée.
 
@@ -72,9 +73,35 @@ Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
 | `note idée`, `notes` | notes Markdown |
 | `gh texte`, `wiki texte`, `tr en bonjour` | recherches web, traduction |
 
+## Commandes « / »
+
+Tape `/` pour voir toutes les commandes ; Entrée ou Tab complète celle qui est sélectionnée. Tout mot-clé ci-dessus marche aussi avec une barre oblique (`/note idée`, `/minuteur 10 min`, `/g texte`).
+
+| Commande | Effet |
+| --- | --- |
+| `/spotify daft punk` | ouvre la recherche dans l'application Spotify (le lecteur web si l'application manque) ; `/spotify pause`, `suivant`, `precedent` |
+| `/media` | morceau en cours et contrôles, pour tout lecteur (`playerctl`) |
+| `/volume 40`, `/volume +10`, `/muet` | volume du son (`wpctl`) |
+| `/luminosite 60` | luminosité de l'écran (portables) |
+| `/sombre`, `/clair`, `/dnd`, `/wifi off` | thème du système, ne pas déranger, wifi |
+| `/verrouiller`, `/veille`, `/eteindre`, `/redemarrer`, `/deconnexion` | session ; la veille demande deux fois Entrée, GNOME confirme les trois autres |
+| `/reglages son` | ouvre un panneau des paramètres GNOME |
+| `/tuer firefox` | processus correspondants, les plus gourmands d'abord, arrêt en deux temps |
+| `/meteo Lyon` | météo du jour et des deux suivants (wttr.in, seulement quand tu la demandes) |
+| `/aide` | l'aide de la barre |
+
 ## Presets
 
-Tout l'aspect de la barre vient du preset actif : position, taille, couleurs claires et sombres, police, densité, opacité, animation, nombre de résultats, panneau d'aperçu, ordre et visibilité des modules. Le preset « Défaut » est intégré ; Minimal, Dense et Développeur sont livrés et modifiables.
+Tout l'aspect de la barre vient du preset actif : position, taille, couleurs claires et sombres, police, densité, opacité, animation, nombre de résultats, panneau d'aperçu, ordre et visibilité des modules. Le preset « Défaut » est intégré ; Minimal, Dense, Développeur, Rose noire, Soie, Fresque et Pixel sont livrés et modifiables. Une mise à jour ajoute les nouveaux presets livrés sans faire revenir ceux que tu as supprimés.
+
+Le bloc `style` donne vie à la barre :
+
+- `companion` : la vouivre, un petit serpent ailé en pixels à la place du glyphe. Elle arrive à l'ouverture, écoute quand tu tapes, regarde les résultats quand tu changes de ligne, se perd quand rien ne correspond, saute et crache une flamme quand une action réussit, rougit et fume sur une erreur, et s'endort après 30 s.
+- `ornament` : `none`, `baroque` (cimier, roses, volutes), `silk` (perle, nuages), `fresco` (soleil vermillon, encre) ou `pixel` (coins). Les ornements débordent du cadre : ils se voient mieux en couche `screen`.
+- `particles` : de 0 à 40 particules lentes derrière les résultats (lucioles, pétales, feuilles d'or ou pixels selon l'ornement).
+- `tint` : la couleur secondaire (ailes, ornements, particules).
+
+Avec `animation_ms` à 0, ou si le système demande moins de mouvement, rien ne bouge : la vouivre change seulement de pose. La direction artistique (compagnon, réactions, presets) est dans le fichier Figma « Landry - Direction artistique ».
 
 Les presets sont des fichiers JSON dans `~/.config/landry/presets/`. On les modifie dans Réglages (formulaire avec aperçu en direct, ou JSON validé), ou à la main puis `landry reload`. Un preset invalide n'empêche jamais la barre de s'ouvrir : Landry revient au preset Défaut et le signale.
 
@@ -99,7 +126,7 @@ Tout fichier de `~/.config/landry/scripts` (shell, Python, Node, ou exécutable)
 
 - Réglages et presets : `~/.config/landry/`. Base (historique, extraits, notes, tâches, suivi) : `~/.local/share/landry/landry.db`.
 - Jetons GitHub, Vercel et traduction : trousseau du système, jamais dans un fichier ni dans une sauvegarde.
-- Aucune télémétrie. Réseau utilisé seulement pour les taux BCE, GitHub, Vercel et la traduction, quand tu les demandes.
+- Aucune télémétrie. Réseau utilisé seulement pour les taux BCE, GitHub, Vercel, la traduction et `/meteo`, quand tu les demandes.
 - Sauvegarde complète et import (sans suppression) : Réglages, onglet Général.
 
 ## Développement

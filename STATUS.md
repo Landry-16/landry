@@ -70,6 +70,14 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 - [x] Paquet .deb (`scripts/package.sh`, vérifié) ; AppImage via le bundler Tauri une fois `libayatana-appindicator3-dev` installé
 - [x] README
 
+## Phase 7 : direction artistique, commandes « / », confort
+- [x] Direction artistique dans Figma (« Landry - Direction artistique », équipe Sandes Educationnal Team) : manifeste, vouivre et ses 9 réactions animées, fiche de comportement, presets
+- [x] Bloc `style` des presets (compagnon, ornement, particules, couleur secondaire), presets Rose noire, Soie, Fresque, Pixel ; les nouveaux presets livrés s'ajoutent à une installation existante (`presets/.shipped`)
+- [x] Vouivre dans la barre (arrivée, repos, écoute, désigne, perdue, joie, erreur, sommeil), ornements et particules, groupe Style dans les réglages
+- [x] Commandes « / » : palette, Spotify, média, volume, luminosité, thème, ne pas déranger, wifi, session, panneaux GNOME, processus, météo, aide ; les mots-clés existants marchent avec « / »
+- [x] Accessibilité et confort : nombre de résultats annoncé aux lecteurs d'écran, aide F1, zoom Ctrl+plus/moins, pied de raccourcis, indications sur barre vide, couleurs forcées, Entrée deux fois pour une action dangereuse
+- [ ] Non testé sur le vrai bureau : la vouivre et les ornements dans la vraie fenêtre (vérifiés dans la maquette `dev/mock.html`), `/spotify` avec l'application installée, `/luminosite` sur un portable, `/media` (playerctl absent de la machine)
+
 ## À vérifier par l'utilisateur
 1. Le vrai raccourci GNOME (`scripts/install-shortcut.sh`) : la barre doit prendre le focus.
 2. Le collage automatique d'un extrait (boîte de dialogue RemoteDesktop au premier essai, puis plus de question si GNOME accepte le jeton).
@@ -78,7 +86,7 @@ Phase courante : **toutes les phases livrées ; restent les vérifications manue
 5. L'AppImage après `scripts/install-deps.sh`.
 
 ## Prochaine étape
-Aucune phase restante. Pistes : extensions TypeScript, intégration IA prévue plus tard.
+Aucune phase restante. Pistes : extensions TypeScript, intégration IA prévue plus tard. Écartés pour Wayland : historique du presse-papiers (GNOME ne laisse pas lire le presse-papiers en arrière-plan) et liste des fenêtres (pas d'API sans extension GNOME Shell).
 
 ## Résultats mesurés (build debug, 2026-10-13)
 - Lancement depuis un processus non focalisé (shell de l'agent) : la fenêtre obtient le focus.
@@ -113,6 +121,8 @@ Build release, ouvertures suivantes : couche `screen` 82 à 110 ms, couche `wind
 - Minuteurs enregistrés en base : ils survivent à un redémarrage ; un minuteur échu pendant l'arrêt est notifié au redémarrage.
 - Sous un résultat calculé (calcul, outil), seules les correspondances textuelles nettes restent affichées.
 - Interface et cœur traduits : un seul dictionnaire `src/i18n/en.json` (clé = texte français), lu par Svelte (`t()`) et par Rust (`i18n::t`, `i18n::tf`) ; titres d'actions traduits à la sortie du moteur ; index reconstruits à l'enregistrement des réglages. Restent en français : la CLI (`landry doctor`, réponses de `landry …`) et les journaux.
+- Commandes « / » : une commande inconnue redevient la recherche sans la barre oblique, pour ne rien déclarer deux fois. Les actions instantanées et risquées (veille, arrêt de processus) demandent deux fois Entrée ; extinction, redémarrage et déconnexion passent par la confirmation de GNOME.
+- La vouivre vit dans le champ de saisie ; les ornements débordent du cadre mais ne couvrent jamais les résultats.
 - Email de commit validé par l'utilisateur : `sandes.savarimuthu@epitech.eu`, auteur `Landry-16`.
 
 ## Problèmes ouverts
