@@ -34,6 +34,7 @@
     windows: 'Fenêtre',
     clipboard: 'Presse-papiers',
     emoji: 'Caractère',
+    dict: 'Dictionnaire',
   };
   const moduleLabel = (m) => (MODULE_LABELS[m] ? t(MODULE_LABELS[m]) : m);
 

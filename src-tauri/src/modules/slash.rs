@@ -44,6 +44,8 @@ const NATIVE: &[Cmd] = &[
     Cmd { name: "presse-papiers", aliases: &["clip", "historique", "pressepapiers"], usage: "/presse-papiers [texte]", desc: "Historique du presse-papiers" },
     Cmd { name: "emoji", aliases: &["emojis", "smiley"], usage: "/emoji <mots>", desc: "Chercher un émoji, en français ou en anglais" },
     Cmd { name: "car", aliases: &["caractere", "caracteres", "char"], usage: "/car <mots>", desc: "Caractères spéciaux : tirets, espaces, guillemets, symboles" },
+    Cmd { name: "def", aliases: &["definition", "dico", "dictionnaire"], usage: "/def [en] <mot>", desc: "Définitions du Wiktionnaire" },
+    Cmd { name: "syn", aliases: &["synonyme", "synonymes"], usage: "/syn [en] <mot>", desc: "Synonymes d'un mot" },
     Cmd { name: "aide", aliases: &["help"], usage: "/aide", desc: "Raccourcis clavier et exemples" },
     Cmd { name: "bienvenue", aliases: &["setup", "assistant"], usage: "/bienvenue", desc: "Raccourci, démarrage, apparence : l'assistant de premier lancement" },
 ];
@@ -187,6 +189,8 @@ fn run_native(settings: &Settings, name: &str, arg: &str) -> Vec<Item> {
         "presse-papiers" => crate::modules::shell::clipboard_items(arg),
         "emoji" => crate::modules::emoji::emojis(arg, 30),
         "car" => crate::modules::emoji::chars(arg, 30),
+        "def" => crate::modules::dict::definitions(settings, arg),
+        "syn" => crate::modules::dict::synonyms(settings, arg),
         "aide" => vec![item("help", t("Aide"), t("Raccourcis clavier et exemples"), vec![(Action::new("", "Ouvrir"), step("view", &["help"]))])],
         _ => vec![],
     }

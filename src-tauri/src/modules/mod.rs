@@ -4,6 +4,7 @@ pub mod cloud;
 pub mod color;
 pub mod convert;
 pub mod dates;
+pub mod dict;
 pub mod emoji;
 pub mod money;
 pub mod organize;
@@ -113,6 +114,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "slash" => slash::run(item, action),
         "windows" | "clipboard" => shell::run(item, action),
         "emoji" => emoji::run(item, action),
+        "dict" => dict::run(item, action),
         "text" => match action {
             "paste" => Ok(Outcome::Paste { text: item.data.clone(), back: 0 }),
             "copy" => Ok(Outcome::Copy(item.data.clone())),
