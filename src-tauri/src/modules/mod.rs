@@ -9,6 +9,7 @@ pub mod calc;
 pub mod files;
 pub mod projects;
 pub mod scripts;
+pub mod slash;
 pub mod snippets;
 pub mod system;
 pub mod text;
@@ -97,6 +98,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "cloud" => cloud::run(settings, item, action),
         "web" => web::run(item, action),
         "scripts" => scripts::run(settings, item, action, arg),
+        "slash" => slash::run(item, action),
         "text" => match action {
             "paste" => Ok(Outcome::Paste { text: item.data.clone(), back: 0 }),
             "copy" => Ok(Outcome::Copy(item.data.clone())),

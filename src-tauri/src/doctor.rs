@@ -78,6 +78,9 @@ pub fn checks() -> Vec<Check> {
         check("tesseract (OCR)", has("tesseract"), "sudo apt install tesseract-ocr tesseract-ocr-fra", true),
         check("Langue française pour l'OCR", tess_langs.lines().any(|l| l.trim() == "fra"), "sudo apt install tesseract-ocr-fra", true),
         check("docker (conteneurs)", has("docker"), "facultatif : seulement pour « docker »", true),
+        check("playerctl (/spotify, /media)", has("playerctl"), "sudo apt install playerctl", true),
+        check("wpctl (/volume, /muet)", has("wpctl"), "sudo apt install wireplumber", true),
+        check("nmcli (/wifi)", has("nmcli"), "sudo apt install network-manager", true),
         check("Processus résident", std::os::unix::net::UnixStream::connect(crate::ipc::socket_path()).is_ok(), "landry toggle le démarre", true),
     ]
 }

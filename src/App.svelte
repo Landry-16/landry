@@ -29,6 +29,7 @@
     files: 'Fichier',
     system: 'Système',
     cloud: 'En ligne',
+    slash: 'Commande',
   };
   const moduleLabel = (m) => (MODULE_LABELS[m] ? t(MODULE_LABELS[m]) : m);
 
@@ -61,6 +62,8 @@
   const current = $derived(results[selected]);
   const style = $derived(preset ? styleOf(preset) : null);
   let help = $state(false);
+  // Id of the item whose dangerous Enter action waits for a second Enter.
+  let armed = $state('');
 
   // Companion mood. Short reactions (arrive, joy, error) win for a moment, then the bar's state decides.
   let clock = $state(0);
@@ -330,10 +333,18 @@
       else selected = Math.max(selected - 1, 0);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      activate(current);
+      if (current?.actions?.[0]?.danger && armed !== current.id) {
+        armed = current.id;
+        message = t('Entrée pour confirmer : {a}', { a: current.actions[0].title });
+      } else {
+        armed = '';
+        activate(current);
+      }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (current) query = current.title;
+      // A command of the / palette completes itself; anything else completes with its title.
+      if (current?.id.startsWith('slash:cmd:')) activate(current);
+      else if (current) query = current.title;
     } else if (e.key === 'Escape') {
       e.preventDefault();
       if (query) query = '';
@@ -402,6 +413,7 @@
             bind:value={query}
             oninput={() => {
               histPos = -1;
+              armed = '';
               help = false;
               typingAt = performance.now();
               tick_(1400);

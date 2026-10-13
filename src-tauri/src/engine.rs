@@ -164,6 +164,16 @@ impl Engine {
     }
 
     pub fn search(&mut self, query: &str) -> Vec<Item> {
+        if let Some(rest) = query.trim_start().strip_prefix('/') {
+            match modules::slash::query(&self.settings, rest) {
+                modules::slash::Slash::Rewrite(q) => return self.search(&q),
+                modules::slash::Slash::Items(mut out) => {
+                    self.shown = out.iter().map(|i| (i.id.clone(), i.clone())).collect();
+                    out.iter_mut().for_each(|i| localize_actions(&mut i.actions));
+                    return out;
+                }
+            }
+        }
         // An alias pointing at text (not an item id) stands for that query.
         let alias = self.settings.aliases.get(query.trim()).cloned();
         let query = match &alias {
@@ -443,6 +453,17 @@ mod tests {
             Outcome::Paste { text: "Bonjour Léa !".into(), back: 2 }
         );
         assert!(e.save_snippet(&usage::Snippet { id: 0, name: " ".into(), keyword: String::new(), body: "x".into() }).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn slash_lists_commands_and_reuses_keywords() {
+        let (mut e, dir) = engine();
+        assert!(e.search("/").iter().all(|i| i.title.starts_with('/')));
+        assert_eq!(e.search("/minuteur 10 min pâtes")[0].title, "Lancer un minuteur de 10 min");
+        let sp = e.search("/spotify nocturne")[0].clone();
+        assert_eq!(e.actions(&sp.id).len(), 3, "l'élément affiché reste activable");
+        assert_eq!(e.search("/dense")[0].id, "cmd:preset:Dense", "un mot inconnu redevient une recherche");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

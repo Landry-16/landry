@@ -106,7 +106,7 @@ pub fn cached(key: &str, settings: &Settings, fetch: Fetch) -> Vec<Item> {
     fresh.map(|(_, items)| items).unwrap_or_else(|| vec![info(&format!("{key}:loading"), "Chargement…", &key.replace('\t', " · "))])
 }
 
-fn client() -> Result<reqwest::blocking::Client, String> {
+pub(crate) fn client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
         .user_agent("landry")
         .timeout(Duration::from_secs(15))
