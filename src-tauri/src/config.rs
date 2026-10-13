@@ -42,9 +42,20 @@ pub enum Side {
     Right,
 }
 
+/// How the bar's window is laid out on Wayland, where apps cannot position windows.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Layer {
+    /// Transparent layer the size of the screen: anchor and offsets apply. Slower to show.
+    Screen,
+    /// Window the size of the bar, placed by GNOME: anchor and offsets are ignored. Faster.
+    Window,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Layout {
+    pub layer: Layer,
     pub anchor: Anchor,
     pub width: u32,
     pub max_height: u32,
@@ -57,7 +68,7 @@ pub struct Layout {
 
 impl Default for Layout {
     fn default() -> Self {
-        Layout { anchor: Anchor::Center, width: 720, max_height: 480, offset_x: 0, offset_y: -80, margin: 96, radius: 16 }
+        Layout { layer: Layer::Screen, anchor: Anchor::Center, width: 720, max_height: 480, offset_x: 0, offset_y: -80, margin: 96, radius: 16 }
     }
 }
 
@@ -185,7 +196,7 @@ pub fn shipped_presets() -> Vec<Preset> {
         animation_ms: 0,
         density: Density::Compact,
         preview: Preview { visible: false, ..Preview::default() },
-        layout: Layout { width: 560, anchor: Anchor::Top, ..Layout::default() },
+        layout: Layout { width: 560, layer: Layer::Window, ..Layout::default() },
         ..base.clone()
     };
     let dense = Preset {
