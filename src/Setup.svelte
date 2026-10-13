@@ -124,6 +124,8 @@
       <h2>{t('Démarrer avec la session')}</h2>
       {#if info}
         <label class="check"><input type="checkbox" bind:checked={info.autostart} onchange={toggleStart} /> {t('Landry est prêt dès la connexion, et redémarre tout seul s’il s’arrête.')}</label>
+      {:else}
+        <p class="state">{t('Vérification…')}</p>
       {/if}
     </li>
 

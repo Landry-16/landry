@@ -45,6 +45,9 @@ fn engine(app: &AppHandle) -> MutexGuard<'_, Engine> {
     app.state::<EngineState>().inner().0.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Layout used by the last opening, for when the engine is busy.
+static LAST_LAYER: Mutex<Option<(config::Layer, u32, u32)>> = Mutex::new(None);
+
 fn bar(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window("bar")
 }
@@ -74,9 +77,14 @@ fn show_bar(app: &AppHandle, token: String) -> String {
     let (tx, rx) = mpsc::channel();
     *app.state::<Painted>().0.lock().unwrap_or_else(|e| e.into_inner()) = Some(tx);
 
-    let layer = {
-        let e = engine(app);
-        (e.preset.layout.layer, e.preset.layout.width, e.preset.layout.max_height)
+    // Never wait for the engine here: a long action holding it must not keep the bar from opening.
+    let layer = match app.state::<EngineState>().inner().0.try_lock() {
+        Ok(e) => {
+            let l = (e.preset.layout.layer, e.preset.layout.width, e.preset.layout.max_height);
+            *LAST_LAYER.lock().unwrap_or_else(|e| e.into_inner()) = Some(l);
+            l
+        }
+        Err(_) => LAST_LAYER.lock().unwrap_or_else(|e| e.into_inner()).unwrap_or((config::Layer::Screen, 720, 480)),
     };
     let win = w.clone();
     let _ = app.run_on_main_thread(move || {
@@ -454,9 +462,12 @@ struct UiState {
     first_run: bool,
 }
 
+// Commands that touch the engine, a process or the clipboard are async: Tauri runs sync commands
+// on the main thread, where a slow call would freeze the bar.
+
 #[tauri::command]
-fn ui_state(state: State<EngineState>) -> UiState {
-    let e = state.0.lock().unwrap_or_else(|e| e.into_inner());
+async fn ui_state(app: AppHandle) -> UiState {
+    let e = engine(&app);
     UiState {
         preset: e.preset.clone(),
         warning: e.warning.clone(),
@@ -468,8 +479,8 @@ fn ui_state(state: State<EngineState>) -> UiState {
 }
 
 #[tauri::command]
-fn search(state: State<EngineState>, query: String) -> Vec<search::Item> {
-    state.0.lock().unwrap_or_else(|e| e.into_inner()).search(&query)
+async fn search(app: AppHandle, query: String) -> Vec<search::Item> {
+    engine(&app).search(&query)
 }
 
 #[tauri::command]
@@ -488,8 +499,8 @@ async fn activate(app: AppHandle, id: String, action: String, arg: String, query
 }
 
 #[tauri::command]
-fn item_actions(state: State<EngineState>, id: String) -> Vec<search::Action> {
-    state.0.lock().unwrap_or_else(|e| e.into_inner()).actions(&id)
+async fn item_actions(app: AppHandle, id: String) -> Vec<search::Action> {
+    engine(&app).actions(&id)
 }
 
 #[tauri::command]
@@ -620,13 +631,13 @@ fn backup_import(app: AppHandle, path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn autostart_get() -> bool {
+async fn autostart_get() -> bool {
     session::autostart()
 }
 
 /// Start the resident process with the session (systemd user service, restarted after a crash).
 #[tauri::command]
-fn autostart_set(on: bool) -> Result<(), String> {
+async fn autostart_set(on: bool) -> Result<(), String> {
     session::set_autostart(on)
 }
 
@@ -638,15 +649,21 @@ struct SetupState {
     missing: Vec<(String, String)>,
 }
 
-/// Everything the first-run assistant shows. Runs the doctor checks: call it off the UI thread.
+/// Everything the first-run assistant shows. The doctor checks run on a plain thread: the
+/// keyring check talks D-Bus through its own blocking runtime, which must not run inside Tauri's.
 #[tauri::command]
 async fn setup_state() -> SetupState {
-    let missing = doctor::checks().into_iter().filter(|c| !c.ok && c.hint.starts_with("sudo ")).map(|c| (c.label, c.hint)).collect();
-    SetupState { shortcut: session::shortcut(), autostart: session::autostart(), missing }
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let missing = doctor::checks().into_iter().filter(|c| !c.ok && c.hint.starts_with("sudo ")).map(|c| (c.label, c.hint)).collect();
+        let _ = tx.send(SetupState { shortcut: session::shortcut(), autostart: session::autostart(), missing });
+    });
+    let fallback = || SetupState { shortcut: None, autostart: false, missing: vec![] };
+    tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(10)).unwrap_or_else(|_| fallback())).await.unwrap_or_else(|_| fallback())
 }
 
 #[tauri::command]
-fn shortcut_set(accel: String) -> Result<(), String> {
+async fn shortcut_set(accel: String) -> Result<(), String> {
     session::set_shortcut(&accel)
 }
 
@@ -656,7 +673,7 @@ fn setup_done() -> Result<(), String> {
 }
 
 #[tauri::command]
-fn copy_text(app: AppHandle, text: String) {
+async fn copy_text(app: AppHandle, text: String) {
     set_clipboard(&app, text);
 }
 
@@ -730,7 +747,7 @@ fn preset_delete(app: AppHandle, name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn preset_use(app: AppHandle, name: String) -> Result<(), String> {
+async fn preset_use(app: AppHandle, name: String) -> Result<(), String> {
     engine(&app).use_preset(&name)?;
     emit_preset(&app);
     Ok(())

@@ -1,8 +1,11 @@
 //! Process helpers shared by modules.
 
+use std::io::Read;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::mpsc::{self, Receiver};
+use std::time::{Duration, Instant};
 
 /// Start a program detached from Landry (own process group, no stdio).
 pub fn spawn(program: &str, args: &[String], cwd: Option<&Path>) -> Result<(), String> {
@@ -14,19 +17,72 @@ pub fn spawn(program: &str, args: &[String], cwd: Option<&Path>) -> Result<(), S
     c.spawn().map(|_| ()).map_err(|e| format!("{program} : {e}"))
 }
 
-/// Run and capture stdout. A non-zero exit becomes an error carrying stderr.
+/// Run and capture stdout, for at most 2 minutes. A non-zero exit becomes an error carrying stderr.
 pub fn output(program: &str, args: &[&str], cwd: Option<&Path>) -> Result<String, String> {
+    output_within(program, args, cwd, Duration::from_secs(120))
+}
+
+/// What a pipe has delivered so far, filled by a thread of its own; `done` fires at end of file.
+struct Drain {
+    buf: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+    done: Receiver<()>,
+}
+
+fn drain(pipe: Option<impl Read + Send + 'static>) -> Drain {
+    let buf = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let (tx, done) = mpsc::channel();
+    if let Some(mut p) = pipe {
+        let b = buf.clone();
+        std::thread::spawn(move || {
+            let mut chunk = [0u8; 8192];
+            while let Ok(n @ 1..) = p.read(&mut chunk) {
+                b.lock().unwrap_or_else(|e| e.into_inner()).extend_from_slice(&chunk[..n]);
+            }
+            let _ = tx.send(());
+        });
+    }
+    Drain { buf, done }
+}
+
+impl Drain {
+    /// Everything read, waiting at most `grace` for the end of file.
+    fn take(self, grace: Duration) -> String {
+        let _ = self.done.recv_timeout(grace);
+        String::from_utf8_lossy(&self.buf.lock().unwrap_or_else(|e| e.into_inner())).into_owned()
+    }
+}
+
+/// Like `output`, killed after `limit`. Only the program itself is waited for: an app it starts
+/// inherits the pipes and may keep them open for hours (`gio open` starting Spotify), so after the
+/// program exits its output is read for 200 ms more, never until the pipes close.
+pub fn output_within(program: &str, args: &[&str], cwd: Option<&Path>, limit: Duration) -> Result<String, String> {
     let mut c = Command::new(program);
-    c.args(args).stdin(Stdio::null());
+    c.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     if let Some(d) = cwd {
         c.current_dir(d);
     }
-    let o = c.output().map_err(|e| format!("{program} : {e}"))?;
-    if o.status.success() {
-        Ok(String::from_utf8_lossy(&o.stdout).into_owned())
+    let mut child = c.spawn().map_err(|e| format!("{program} : {e}"))?;
+    let (out, err) = (drain(child.stdout.take()), drain(child.stderr.take()));
+    let start = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(s)) => break s,
+            Ok(None) if start.elapsed() > limit => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(crate::i18n::tf("{p} : pas de réponse après {n} s", &[("p", &program), ("n", &limit.as_secs())]));
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(5)),
+            Err(e) => return Err(format!("{program} : {e}")),
+        }
+    };
+    let grace = Duration::from_millis(200);
+    let stdout = out.take(grace);
+    if status.success() {
+        Ok(stdout)
     } else {
-        let err = String::from_utf8_lossy(&o.stderr);
-        Err(format!("{program} : {}", err.trim().lines().last().unwrap_or("échec")))
+        let stderr = err.take(grace);
+        Err(format!("{program} : {}", stderr.trim().lines().last().unwrap_or(&crate::i18n::t("échec"))))
     }
 }
 
@@ -52,6 +108,23 @@ pub fn run_template(tpl: &str, vars: &[(&str, &str)], cwd: Option<&Path>) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn output_does_not_wait_for_what_the_program_starts() {
+        // The program exits at once but leaves a child holding stdout for 5 s.
+        let start = Instant::now();
+        let out = output("sh", &["-c", "echo ok; sleep 5 &"], None).unwrap();
+        assert_eq!(out.trim(), "ok");
+        assert!(start.elapsed() < Duration::from_secs(2), "{:?}", start.elapsed());
+    }
+
+    #[test]
+    fn output_is_killed_after_its_limit() {
+        let start = Instant::now();
+        assert!(output_within("sleep", &["5"], None, Duration::from_millis(300)).is_err());
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert!(output("sh", &["-c", "echo boom >&2; exit 3"], None).unwrap_err().contains("boom"));
+    }
 
     #[test]
     fn template_keeps_values_as_single_arguments() {

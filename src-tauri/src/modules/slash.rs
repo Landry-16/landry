@@ -94,6 +94,11 @@ fn step(kind: &str, parts: &[&str]) -> Step {
     std::iter::once(kind).chain(parts.iter().copied()).map(String::from).collect()
 }
 
+/// A status read (player, volume, wifi, processes): never more than 2 s, the bar is waiting.
+fn quick(program: &str, args: &[&str]) -> Result<String, String> {
+    util::output_within(program, args, None, std::time::Duration::from_secs(2))
+}
+
 fn item(id: &str, title: String, subtitle: String, acts: Vec<(Action, Step)>) -> Item {
     let (mut actions, steps): (Vec<Action>, Vec<Step>) = acts.into_iter().unzip();
     actions.iter_mut().enumerate().for_each(|(i, a)| a.id = format!("a{i}"));
@@ -239,7 +244,7 @@ fn media(player: Option<&str>, arg: &str) -> Vec<Item> {
     }
     let mut meta = base.clone();
     meta.extend(["metadata", "--format", "{{status}}\t{{artist}}\t{{title}}"]);
-    match util::output("playerctl", &meta, None) {
+    match quick("playerctl", &meta) {
         Ok(out) => {
             let mut f = out.trim().splitn(3, '\t');
             let (status, artist, title) = (f.next().unwrap_or(""), f.next().unwrap_or(""), f.next().unwrap_or(""));
@@ -284,7 +289,7 @@ fn volume(arg: &str) -> Vec<Item> {
     if let Some((value, label)) = target {
         return vec![item("volume:set", label.clone(), String::new(), vec![(Action::new("", "Appliquer"), set(&value, label))])];
     }
-    let current = util::output("wpctl", &["get-volume", SINK], None).ok().and_then(|s| parse_volume(&s));
+    let current = quick("wpctl", &["get-volume", SINK]).ok().and_then(|s| parse_volume(&s));
     let subtitle = match current {
         Some((v, true)) => tf("{v} %, coupé", &[("v", &v)]),
         Some((v, false)) => tf("{v} %", &[("v", &v)]),
@@ -348,7 +353,7 @@ fn scheme(dark: bool) -> Item {
 }
 
 fn dnd() -> Item {
-    let banners = util::output("gsettings", &["get", "org.gnome.desktop.notifications", "show-banners"], None).map(|s| s.trim() == "true").unwrap_or(true);
+    let banners = quick("gsettings", &["get", "org.gnome.desktop.notifications", "show-banners"]).map(|s| s.trim() == "true").unwrap_or(true);
     let (title, value, msg) = if banners {
         (t("Activer ne pas déranger"), "false", t("Ne pas déranger activé"))
     } else {
@@ -358,7 +363,7 @@ fn dnd() -> Item {
 }
 
 fn wifi(arg: &str) -> Item {
-    let on = util::output("nmcli", &["radio", "wifi"], None).map(|s| s.trim() == "enabled").ok();
+    let on = quick("nmcli", &["radio", "wifi"]).map(|s| s.trim() == "enabled").ok();
     let want = match fold(arg).as_str() {
         "on" | "oui" => true,
         "off" | "non" => false,
@@ -404,7 +409,7 @@ fn processes(arg: &str) -> Vec<Item> {
     if arg.is_empty() {
         return vec![info("kill:hint", "/tuer <processus>".into(), t("Les plus gourmands en premier"))];
     }
-    let out = match util::output("ps", &["-eo", "pid=,comm=,%cpu=,rss=", "--sort=-%cpu"], None) {
+    let out = match quick("ps", &["-eo", "pid=,comm=,%cpu=,rss=", "--sort=-%cpu"]) {
         Ok(o) => o,
         Err(e) => return vec![info("kill:err", t("Processus illisibles"), e)],
     };
@@ -479,7 +484,7 @@ pub fn run(item: &Item, action: &str) -> Result<Outcome, String> {
     match arg(0) {
         "run" => {
             let args: Vec<&str> = s[3..].iter().map(String::as_str).collect();
-            util::output(arg(2), &args, None)?;
+            util::output_within(arg(2), &args, None, std::time::Duration::from_secs(10))?;
             Ok(if arg(1).is_empty() { Outcome::Hide } else { Outcome::Message(arg(1).to_string()) })
         }
         "spawn" => {
@@ -488,7 +493,7 @@ pub fn run(item: &Item, action: &str) -> Result<Outcome, String> {
         }
         "open" => {
             // gio exits non-zero when no application handles the scheme (Spotify not installed).
-            if util::output("gio", &["open", arg(1)], None).is_err() {
+            if util::output_within("gio", &["open", arg(1)], None, std::time::Duration::from_secs(10)).is_err() {
                 if arg(2).is_empty() {
                     return Err(tf("impossible d'ouvrir {u}", &[("u", &arg(1))]));
                 }
