@@ -1,6 +1,9 @@
+mod apps;
 mod config;
 mod ipc;
 mod paths;
+mod search;
+mod usage;
 
 use std::sync::mpsc;
 use std::sync::Mutex;
