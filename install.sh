@@ -117,7 +117,9 @@ if [[ ! -f node_modules/.landry-lock || $(cat node_modules/.landry-lock) != "$lo
   echo "$lock" >node_modules/.landry-lock
 fi
 VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-step "Construction de Landry $VERSION (la première fois prend quelques minutes)"
+step "Construction de Landry $VERSION"
+echo "  Première fois : 5 à 10 minutes. Ensuite : environ 2 minutes."
+echo "  La dernière étape, landry(bin), reste immobile 1 à 2 minutes : c'est normal, ne l'interromps pas."
 npx tauri build --bundles deb
 DEB=$PWD/src-tauri/target/release/bundle/deb/Landry_${VERSION}_$(dpkg --print-architecture).deb
 [[ -f $DEB ]] || die "paquet introuvable : $DEB"

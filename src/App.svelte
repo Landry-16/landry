@@ -827,7 +827,7 @@
     padding-top: 0;
     font-size: 0.85em;
   }
-  .field + .empty.hint {
+  .sr-only + .empty.hint {
     padding-top: calc(var(--pad) + 10px);
   }
   .keys {

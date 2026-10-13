@@ -14,7 +14,7 @@ Une seule commande installe, met à jour ou réinstalle Landry, avec tout ce don
 ./install.sh
 ```
 
-Sans clone du dépôt :
+Sans clone du dépôt (seulement si le dépôt GitHub est public) :
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Landry-16/landry/dev/install.sh | bash
