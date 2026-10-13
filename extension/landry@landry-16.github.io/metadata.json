@@ -1,0 +1,8 @@
+{
+  "uuid": "landry@landry-16.github.io",
+  "name": "Landry",
+  "description": "Fenêtres ouvertes et historique du presse-papiers pour la barre Landry. Ne répond qu'à Landry ; l'historique reste en mémoire et ignore les secrets des gestionnaires de mots de passe.",
+  "shell-version": ["46", "47", "48", "49"],
+  "url": "https://github.com/Landry-16/landry",
+  "version": 1
+}

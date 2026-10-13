@@ -31,6 +31,8 @@
     system: 'Système',
     cloud: 'En ligne',
     slash: 'Commande',
+    windows: 'Fenêtre',
+    clipboard: 'Presse-papiers',
   };
   const moduleLabel = (m) => (MODULE_LABELS[m] ? t(MODULE_LABELS[m]) : m);
 

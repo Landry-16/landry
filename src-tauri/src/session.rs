@@ -131,6 +131,48 @@ pub fn set_shortcut(accel: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// State of Landry's GNOME Shell extension (open windows, clipboard history).
+#[derive(serde::Serialize, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Extension {
+    /// Answers on D-Bus.
+    Active,
+    /// Enabled, waiting for the next login (Wayland loads new extensions only then).
+    Pending,
+    /// Installed with the package, not enabled.
+    Off,
+    /// Not installed (Landry built without the package).
+    Missing,
+}
+
+pub fn extension() -> Extension {
+    use crate::modules::shell::{available, UUID};
+    if available() {
+        return Extension::Active;
+    }
+    let installed = ["/usr/share/gnome-shell/extensions", "~/.local/share/gnome-shell/extensions"]
+        .iter()
+        .any(|d| crate::paths::expand(d).join(UUID).join("extension.js").exists());
+    let enabled = util::output("gsettings", &["get", "org.gnome.shell", "enabled-extensions"], None).is_ok_and(|l| l.contains(UUID));
+    match (installed, enabled) {
+        (false, _) => Extension::Missing,
+        (true, true) => Extension::Pending,
+        (true, false) => Extension::Off,
+    }
+}
+
+/// Add the extension to GNOME's enabled list. It starts at the next login under Wayland.
+pub fn enable_extension() -> Result<(), String> {
+    let uuid = crate::modules::shell::UUID;
+    let list = util::output("gsettings", &["get", "org.gnome.shell", "enabled-extensions"], None)?;
+    if let Some(new) = add_to_list(&list, uuid) {
+        util::output("gsettings", &["set", "org.gnome.shell", "enabled-extensions", &new], None)?;
+    }
+    // Starts at once when the Shell already knows the extension (X11, or installed before login).
+    let _ = util::output("gnome-extensions", &["enable", uuid], None);
+    Ok(())
+}
+
 pub fn first_run() -> bool {
     !marker().exists()
 }

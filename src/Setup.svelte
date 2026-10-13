@@ -88,7 +88,7 @@
     <Companion mood="joy" />
     <div>
       <h1 id="setup-title">{t('Bienvenue dans Landry')}</h1>
-      <p>{t('Quatre réglages, tous facultatifs. Tu peux revenir ici avec /bienvenue.')}</p>
+      <p>{t('Cinq réglages, tous facultatifs. Tu peux revenir ici avec /bienvenue.')}</p>
     </div>
   </header>
 
@@ -142,6 +142,27 @@
           </button>
         {/each}
       </div>
+    </li>
+
+    <li>
+      <h2>{t('Fenêtres et presse-papiers')}</h2>
+      <p class="hint">{t('Passer à une fenêtre déjà ouverte, et retrouver ce que tu as copié avec /presse-papiers. Une petite extension GNOME, qui ne répond qu’à Landry ; l’historique reste en mémoire et ignore les mots de passe.')}</p>
+      {#if !info}
+        <p class="state">{t('Vérification…')}</p>
+      {:else if info.extension === 'active'}
+        <p class="state done">{t('Active.')}</p>
+      {:else if info.extension === 'pending'}
+        <p class="state">{t('Activée : reconnecte-toi une fois à ta session pour qu’elle démarre.')}</p>
+      {:else if info.extension === 'off'}
+        <button
+          onclick={() =>
+            run(async () => {
+              await invoke('extension_enable');
+              info.extension = 'pending';
+            }, t('Extension activée. Reconnecte-toi une fois à ta session.'))}>{t("Activer l'extension")}</button>
+      {:else}
+        <p class="state">{t('Extension absente : installe Landry avec ./install.sh ou le paquet .deb.')}</p>
+      {/if}
     </li>
 
     <li>
@@ -238,12 +259,17 @@
     margin: 2px 0 8px;
     font-size: 1.02em;
   }
-  .info {
+  .hint {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 0.85em;
+  }
+  .state {
     margin: 0 0 10px;
     color: var(--muted);
     font-size: 0.9em;
   }
-  .info.done::before {
+  .state.done::before {
     content: '✓ ';
     color: var(--accent);
     font-weight: 700;

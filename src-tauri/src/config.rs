@@ -11,7 +11,7 @@ pub const DEFAULT_NAME: &str = "Défaut";
 
 /// Every module the bar knows, in default display order.
 pub const MODULES: &[&str] = &[
-    "commands", "slash", "timers", "tracking", "apps", "scripts", "snippets", "text", "calc", "tools", "web", "tasks", "notes", "projects", "files",
+    "commands", "slash", "windows", "timers", "tracking", "apps", "scripts", "snippets", "text", "calc", "tools", "web", "tasks", "notes", "projects", "files",
     "system", "cloud",
 ];
 
@@ -463,6 +463,8 @@ pub struct Settings {
     pub translate_url: String,
     /// Read the text selected in the previous app when the bar opens (text transformations).
     pub read_selection: bool,
+    /// Enter on an app that already has a window switches to it (needs the GNOME extension).
+    pub switch_to_window: bool,
 }
 
 impl Default for Settings {
@@ -493,6 +495,7 @@ impl Default for Settings {
             translate_target: "EN".into(),
             translate_url: String::new(),
             read_selection: true,
+            switch_to_window: true,
         }
     }
 }

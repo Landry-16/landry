@@ -40,6 +40,10 @@ if [[ ${1:-} == --uninstall ]]; then
     systemctl --user daemon-reload || true
   fi
   rm -f "$HOME/.config/autostart/landry.desktop"
+  ext=$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null || echo "@as []")
+  ext=$(sed -e "s#, 'landry@landry-16.github.io'##; s#'landry@landry-16.github.io', ##; s#'landry@landry-16.github.io'##" <<<"$ext")
+  [[ $ext == "[]" ]] && ext="@as []"
+  gsettings set org.gnome.shell enabled-extensions "$ext" 2>/dev/null || true
   list=$(gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings 2>/dev/null || echo "@as []")
   if [[ $list == *"$SHORTCUT"* ]]; then
     list=$(sed -e "s#, '$SHORTCUT'##; s#'$SHORTCUT', ##; s#'$SHORTCUT'##" <<<"$list")
@@ -129,7 +133,18 @@ step "Installation du paquet"
 stop_landry
 root apt-get install -y --reinstall --allow-downgrades "$DEB"
 
-# ---------- 7. Restart ----------
+# ---------- 7. GNOME extension (open windows, clipboard history): starts at the next login ----------
+UUID=landry@landry-16.github.io
+list=$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null || echo "@as []")
+if [[ $list != *"'$UUID'"* && ${LANDRY_DRY_RUN:-} != 1 ]]; then
+  step "Activation de l'extension GNOME de Landry"
+  if [[ $list == "@as []" || $list == "[]" ]]; then list="['$UUID']"; else list="${list%]}, '$UUID']"; fi
+  gsettings set org.gnome.shell enabled-extensions "$list"
+  gnome-extensions enable "$UUID" 2>/dev/null || true
+  echo "  Fenêtres ouvertes et historique du presse-papiers : reconnecte-toi une fois à ta session."
+fi
+
+# ---------- 8. Restart ----------
 if [[ ${LANDRY_DRY_RUN:-} != 1 ]]; then
   step "Démarrage"
   if systemctl --user is-enabled landry.service >/dev/null 2>&1; then

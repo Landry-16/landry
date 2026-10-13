@@ -134,7 +134,7 @@ impl Engine {
                     icon: icons.get(&a.icon).cloned().unwrap_or_default(),
                     keywords,
                     actions: {
-                        let mut v = vec![Action::new("launch", "Lancer"), Action::new("reveal", "Afficher le fichier .desktop")];
+                        let mut v = vec![Action::new("launch", "Lancer"), Action::new("new-window", "Nouvelle fenêtre"), Action::new("reveal", "Afficher le fichier .desktop")];
                         if a.removable {
                             v.push(Action::new("uninstall", "Désinstaller").danger());
                         }
@@ -145,6 +145,23 @@ impl Engine {
             })
             .collect();
         self.set_index("apps", items);
+    }
+
+    /// Open windows for the search, with the icon of their application.
+    pub fn set_windows(&mut self, windows: &[modules::shell::Window]) {
+        let mut items: Vec<Item> = windows.iter().map(modules::shell::window_item).collect();
+        self.fill_window_icons(&mut items);
+        self.set_index("windows", items);
+    }
+
+    fn fill_window_icons(&self, items: &mut [Item]) {
+        let apps = self.index.get("apps");
+        for it in items.iter_mut().filter(|i| i.module == "windows" && i.icon.is_empty()) {
+            let app = it.data.split_once('\t').map(|(_, a)| format!("app:{a}")).unwrap_or_default();
+            if let Some(a) = apps.and_then(|v| v.iter().find(|a| a.id == app)) {
+                it.icon = a.icon.clone();
+            }
+        }
     }
 
     fn command_items(&self) -> Vec<Item> {
@@ -203,6 +220,7 @@ impl Engine {
             match modules::slash::query(&self.settings, rest) {
                 modules::slash::Slash::Rewrite(q) => return self.search_query(&q),
                 modules::slash::Slash::Items(mut out) => {
+                    self.fill_window_icons(&mut out);
                     self.shown = out.iter().map(|i| (i.id.clone(), i.clone())).collect();
                     out.iter_mut().for_each(|i| localize_actions(&mut i.actions));
                     return out;

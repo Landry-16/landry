@@ -109,6 +109,9 @@ fn show_bar(app: &AppHandle, token: String) -> String {
         let wanted = engine(&h).settings.read_selection;
         let sel = if wanted { read_selection(&h, true).filter(|s| !s.trim().is_empty() && s.len() < 100_000) } else { None };
         engine(&h).selection = sel;
+        // Open windows change all the time: read them at each opening (empty without the extension).
+        let wins = modules::shell::windows().unwrap_or_default();
+        engine(&h).set_windows(&wins);
     });
     let paint_ms = start.elapsed().as_millis();
     // Focus arrives asynchronously from the compositor; give it a short window.
@@ -648,6 +651,7 @@ struct SetupState {
     autostart: bool,
     /// Optional tools that are missing, with the command that installs them.
     missing: Vec<(String, String)>,
+    extension: session::Extension,
 }
 
 /// Everything the first-run assistant shows. The doctor checks run on a plain thread: the
@@ -657,10 +661,15 @@ async fn setup_state() -> SetupState {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let missing = doctor::checks().into_iter().filter(|c| !c.ok && c.hint.starts_with("sudo ")).map(|c| (c.label, c.hint)).collect();
-        let _ = tx.send(SetupState { shortcut: session::shortcut(), autostart: session::autostart(), missing });
+        let _ = tx.send(SetupState { shortcut: session::shortcut(), autostart: session::autostart(), missing, extension: session::extension() });
     });
-    let fallback = || SetupState { shortcut: None, autostart: false, missing: vec![] };
+    let fallback = || SetupState { shortcut: None, autostart: false, missing: vec![], extension: session::Extension::Missing };
     tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(10)).unwrap_or_else(|_| fallback())).await.unwrap_or_else(|_| fallback())
+}
+
+#[tauri::command]
+async fn extension_enable() -> Result<(), String> {
+    session::enable_extension()
 }
 
 #[tauri::command]
@@ -1006,6 +1015,7 @@ fn daemon() {
             autostart_get,
             autostart_set,
             setup_state,
+            extension_enable,
             shortcut_set,
             setup_done,
             backup_import,

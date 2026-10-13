@@ -46,6 +46,10 @@
     "shortDescription": "Compagnon du quotidien",
     "linux": {
       "deb": {
+        "files": {
+          "/usr/share/gnome-shell/extensions/landry@landry-16.github.io/extension.js": "../extension/landry@landry-16.github.io/extension.js",
+          "/usr/share/gnome-shell/extensions/landry@landry-16.github.io/metadata.json": "../extension/landry@landry-16.github.io/metadata.json"
+        },
         "depends": [
           "xdg-desktop-portal-gnome",
           "zip"

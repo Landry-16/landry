@@ -9,6 +9,7 @@ pub mod calc;
 pub mod files;
 pub mod projects;
 pub mod scripts;
+pub mod shell;
 pub mod slash;
 pub mod snippets;
 pub mod system;
@@ -82,7 +83,9 @@ pub fn actions(item: &Item) -> Vec<Action> {
 pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<Outcome, String> {
     match item.module.as_str() {
         "apps" => match action {
-            "launch" => {
+            // Already open: switch to its window instead of starting it again.
+            "launch" if settings.switch_to_window && shell::switch_to_app(item.id.trim_start_matches("app:")) => Ok(Outcome::Hide),
+            "launch" | "new-window" => {
                 crate::apps::launch(std::path::Path::new(&item.data))?;
                 Ok(Outcome::Hide)
             }
@@ -106,6 +109,7 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
         "web" => web::run(item, action),
         "scripts" => scripts::run(settings, item, action, arg),
         "slash" => slash::run(item, action),
+        "windows" | "clipboard" => shell::run(item, action),
         "text" => match action {
             "paste" => Ok(Outcome::Paste { text: item.data.clone(), back: 0 }),
             "copy" => Ok(Outcome::Copy(item.data.clone())),

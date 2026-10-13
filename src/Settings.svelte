@@ -14,6 +14,7 @@
   const MODULE_NAMES = {
     commands: 'Commandes Landry',
     slash: 'Commandes « / »',
+    windows: 'Fenêtres ouvertes',
     apps: 'Applications',
     calc: 'Calcul, dates, montants',
     snippets: 'Extraits',
