@@ -4,13 +4,22 @@
   import { listen } from '@tauri-apps/api/event';
   import { applyToRoot } from './lib/theme.js';
   import Settings from './Settings.svelte';
+  import Diff from './Diff.svelte';
 
-  const MODULE_LABELS = { apps: 'Application', commands: 'Commande' };
+  const MODULE_LABELS = {
+    apps: 'Application',
+    commands: 'Commande',
+    tools: 'Outil',
+    projects: 'Projet',
+    files: 'Fichier',
+    system: 'Système',
+  };
 
   let preset = $state(null);
   let systemDark = $state(false);
   let warning = $state('');
   let error = $state('');
+  let message = $state('');
   let history = $state([]);
   let query = $state('');
   let results = $state([]);
@@ -19,8 +28,15 @@
   let shownCount = $state(0);
   let input = $state();
   let list = $state();
+  let promptInput = $state();
+  // Ctrl+K panel: { item, actions, sel, confirm }
+  let panel = $state(null);
+  // Argument prompt: { item, action, value }
+  let prompt = $state(null);
+  let previewData = $state(null);
   let histPos = -1;
   let searchSeq = 0;
+  let previewSeq = 0;
 
   const current = $derived(results[selected]);
 
@@ -52,7 +68,7 @@
   });
 
   $effect(() => {
-    invoke('settings_layer', { on: view === 'settings' });
+    invoke('settings_layer', { on: view !== 'bar' });
   });
 
   $effect(() => {
@@ -60,16 +76,38 @@
   });
 
   $effect(() => {
+    // Rich preview (file content, project state...) for the selected item.
+    const id = current?.id;
+    const seq = ++previewSeq;
+    previewData = null;
+    if (!id || !preset?.preview.visible) return;
+    invoke('preview', { id }).then((p) => {
+      if (seq === previewSeq) previewData = p;
+    });
+  });
+
+  function resetBar() {
+    view = 'bar';
+    query = '';
+    error = '';
+    message = '';
+    panel = null;
+    prompt = null;
+    histPos = -1;
+  }
+
+  function focusInput() {
+    tick().then(() => input?.focus());
+  }
+
+  $effect(() => {
     refresh();
     const subs = [
       listen('landry://shown', () => {
-        view = 'bar';
-        query = '';
-        error = '';
-        histPos = -1;
+        resetBar();
         shownCount++;
         // The keyed block re-creates the input: focus the new one once rendered.
-        tick().then(() => input?.focus());
+        focusInput();
         // Two frames: the first is queued with the show, the second proves it was painted.
         requestAnimationFrame(() => requestAnimationFrame(() => invoke('painted')));
         refresh();
@@ -81,20 +119,71 @@
       }),
       listen('landry://theme', (e) => (systemDark = e.payload)),
       listen('landry://open-settings', () => (view = 'settings')),
+      listen('landry://fill', (e) => {
+        query = e.payload;
+        focusInput();
+      }),
+      listen('landry://view', (e) => (view = e.payload)),
     ];
     return () => subs.forEach((p) => p.then((f) => f()));
   });
 
-  async function activate(item) {
+  async function activate(item, action = '', arg = '') {
     if (!item) return;
     error = '';
+    message = '';
+    panel = null;
+    prompt = null;
     try {
-      const outcome = await invoke('activate', { id: item.id, query });
-      if (outcome === 'hide') query = '';
-      else if (outcome === 'settings') view = 'settings';
-      else runSearch(query);
+      const out = await invoke('activate', { id: item.id, action, arg, query });
+      switch (out.kind) {
+        case 'hide':
+        case 'copy':
+          query = '';
+          break;
+        case 'settings':
+          view = 'settings';
+          break;
+        case 'fill':
+          query = out.text;
+          break;
+        case 'view':
+          view = out.text;
+          break;
+        case 'message':
+          message = out.text;
+          runSearch(query);
+          break;
+        case 'keep':
+          runSearch(query);
+          break;
+      }
     } catch (e) {
       error = String(e);
+    }
+    focusInput();
+  }
+
+  async function openPanel() {
+    if (!current) return;
+    const actions = await invoke('item_actions', { id: current.id });
+    if (actions.length) panel = { item: current, actions, sel: 0, confirm: false };
+  }
+
+  function choose(action) {
+    const item = panel.item;
+    if (action.arg) {
+      prompt = { item, action, value: action.value ?? '' };
+      panel = null;
+      tick().then(() => {
+        promptInput?.focus();
+        promptInput?.select();
+      });
+    } else if (action.danger && !panel.confirm) {
+      // Destructive actions need a second Enter.
+      panel.confirm = true;
+    } else {
+      activate(item, action.id);
     }
   }
 
@@ -103,9 +192,24 @@
     query = histPos < 0 ? '' : history[histPos];
   }
 
+  function panelKeys(e) {
+    const n = panel.actions.length;
+    if (e.key === 'ArrowDown') panel.sel = (panel.sel + 1) % n;
+    else if (e.key === 'ArrowUp') panel.sel = (panel.sel - 1 + n) % n;
+    else if (e.key === 'Enter') choose(panel.actions[panel.sel]);
+    else if (e.key === 'Escape' || (e.key === 'k' && e.ctrlKey)) panel = null;
+    else return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') panel.confirm = false;
+    e.preventDefault();
+  }
+
   function onkeydown(e) {
+    if (panel) return panelKeys(e);
     const browsing = histPos >= 0;
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'k' && e.ctrlKey) {
+      e.preventDefault();
+      openPanel();
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (browsing) recall(-1);
       else selected = Math.min(selected + 1, results.length - 1);
@@ -129,20 +233,33 @@
     }
   }
 
-  function closeSettings() {
+  function promptKeys(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      activate(prompt.item, prompt.action.id, prompt.value);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      prompt = null;
+      focusInput();
+    }
+  }
+
+  function backToBar() {
     view = 'bar';
     query = '';
-    requestAnimationFrame(() => input?.focus());
+    focusInput();
   }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="overlay" class:centered={view === 'settings'} onmousedown={(e) => e.target === e.currentTarget && invoke('hide')}>
+<div class="overlay" class:centered={view !== 'bar'} onmousedown={(e) => e.target === e.currentTarget && invoke('hide')}>
   {#if preset && view === 'settings'}
-    <Settings active={preset.name} {systemDark} onclose={closeSettings} />
+    <Settings active={preset.name} {systemDark} onclose={backToBar} />
+  {:else if preset && view === 'diff'}
+    <Diff onclose={backToBar} />
   {:else if preset}
     {#key shownCount}
-      <section class="bar" class:with-preview={preset.preview.visible && current} aria-label="Landry">
+      <section class="bar" aria-label="Landry">
         <div class="field">
           <span class="glyph" aria-hidden="true">L</span>
           <input
@@ -161,9 +278,24 @@
         </div>
 
         {#if warning}<p class="notice" role="status">{warning}</p>{/if}
+        {#if message}<p class="notice" role="status">{message}</p>{/if}
         {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
-        {#if results.length}
+        {#if prompt}
+          <div class="prompt">
+            <label for="prompt-input">{prompt.action.title} : <strong>{prompt.item.title}</strong></label>
+            <input
+              id="prompt-input"
+              bind:this={promptInput}
+              bind:value={prompt.value}
+              onkeydown={promptKeys}
+              placeholder={prompt.action.arg}
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <small>Entrée pour valider, Échap pour annuler</small>
+          </div>
+        {:else if results.length}
           <div class="body" class:preview-left={preset.preview.side === 'left'}>
             <ul id="results" role="listbox" bind:this={list}>
               {#each results as item, i (item.id)}
@@ -187,12 +319,41 @@
                 </li>
               {/each}
             </ul>
-            {#if preset.preview.visible && current}
+
+            {#if panel}
+              <div class="actions" role="listbox" aria-label={`Actions pour ${panel.item.title}`}>
+                <p class="actions-title">{panel.item.title}</p>
+                {#each panel.actions as a, i (a.id)}
+                  <!-- svelte-ignore a11y_click_events_have_key_events -->
+                  <div
+                    role="option"
+                    tabindex="-1"
+                    aria-selected={i === panel.sel}
+                    class:danger={a.danger}
+                    onmousemove={() => (panel.sel = i)}
+                    onclick={() => choose(a)}
+                  >
+                    {i === panel.sel && panel.confirm ? 'Entrée pour confirmer : ' : ''}{a.title}{a.arg ? '…' : ''}
+                  </div>
+                {/each}
+              </div>
+            {:else if preset.preview.visible && current}
               <aside class="preview" aria-label="Aperçu">
-                {#if current.icon}<img src={current.icon} alt="" />{:else}<span class="letter big">{current.title.slice(0, 1)}</span>{/if}
+                {#if previewData?.kind === 'image'}
+                  <img class="shot" src={previewData.src} alt={current.title} />
+                {:else}
+                  {#if current.icon}<img src={current.icon} alt="" />{:else}<span class="letter big">{current.title.slice(0, 1)}</span>{/if}
+                {/if}
                 <h2>{current.title}</h2>
                 {#if current.subtitle}<p>{current.subtitle}</p>{/if}
-                <p class="meta">{MODULE_LABELS[current.module] ?? current.module} · Entrée pour lancer</p>
+                {#if previewData?.kind === 'text'}
+                  <pre>{previewData.text}</pre>
+                {:else if previewData?.kind === 'props'}
+                  <dl>
+                    {#each previewData.rows as [k, v]}<dt>{k}</dt><dd>{v}</dd>{/each}
+                  </dl>
+                {/if}
+                <p class="meta">{MODULE_LABELS[current.module] ?? current.module} · Entrée{current.actions?.[0] ? ` : ${current.actions[0].title.toLowerCase()}` : ''}{current.actions?.length > 1 ? ' · Ctrl+K : actions' : ''}</p>
               </aside>
             {/if}
           </div>
@@ -434,5 +595,92 @@
     .bar {
       animation: none;
     }
+  }
+
+  .prompt {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: calc(var(--pad) + 10px) calc(var(--pad) + 8px);
+  }
+  .prompt input {
+    font-size: 1.05em;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: color-mix(in srgb, var(--fg) 5%, transparent);
+    caret-color: var(--accent);
+  }
+  .prompt small {
+    color: var(--muted);
+  }
+
+  .actions {
+    width: var(--preview-width);
+    min-width: 220px;
+    flex: none;
+    box-sizing: border-box;
+    padding: var(--pad);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--selection) 40%, transparent);
+  }
+  .actions-title {
+    margin: 4px 10px 8px;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .actions [role='option'] {
+    padding: 7px 10px;
+    border-radius: calc(var(--radius) * 0.5);
+    font-size: 0.92em;
+    cursor: default;
+  }
+  .actions [aria-selected='true'] {
+    background: var(--selection);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .actions .danger {
+    color: #e5484d;
+  }
+
+  .preview pre {
+    margin: 4px 0 0;
+    padding: 8px;
+    max-height: 100%;
+    overflow: hidden;
+    font-size: 0.75em;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--fg) 5%, transparent);
+    color: var(--fg);
+  }
+  .preview img.shot {
+    width: 100%;
+    height: auto;
+    max-height: 45%;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  .preview dl {
+    margin: 4px 0 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    font-size: 0.82em;
+  }
+  .preview dt {
+    color: var(--muted);
+  }
+  .preview dd {
+    margin: 0;
+    word-break: break-word;
   }
 </style>

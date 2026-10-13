@@ -15,7 +15,19 @@
     ['Paramètres', 'Utilitaire de configuration de GNOME'],
     ['Calculatrice', 'Effectuer des calculs'],
     ['Vidéos', 'Lire des films'],
-  ].map(([title, subtitle]) => ({ id: `app:${title}`, module: 'apps', title, subtitle, icon: '' }));
+  ].map(([title, subtitle]) => ({ id: `app:${title}`, module: 'apps', title, subtitle, icon: '', actions: [{ id: 'launch', title: 'Lancer' }] }));
+  const fileActions = [
+    { id: 'open', title: 'Ouvrir' },
+    { id: 'reveal', title: 'Afficher dans le dossier' },
+    { id: 'copy-path', title: 'Copier le chemin' },
+    { id: 'rename', title: 'Renommer', arg: 'Nouveau nom', value: 'facture-octobre.pdf' },
+    { id: 'trash', title: 'Mettre à la corbeille', danger: true },
+  ];
+  const others = [
+    { id: 'file:/home/user/Documents/facture-octobre.pdf', module: 'files', title: 'facture-octobre.pdf', subtitle: '~/Documents', icon: '', actions: fileActions },
+    { id: 'proj:/home/user/dev/nacre', module: 'projects', title: 'nacre', subtitle: 'main · 2 modifiés · ~/dev/nacre', icon: '', actions: [{ id: 'editor', title: "Ouvrir dans l'éditeur" }, { id: 'terminal', title: 'Ouvrir un terminal' }, { id: 'npm:dev', title: 'npm run dev' }] },
+    { id: 'tool:diff', module: 'tools', title: 'Comparer deux textes', subtitle: 'Diff ligne par ligne', icon: '', actions: [{ id: 'view', title: 'Ouvrir' }] },
+  ];
 
   const fold = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   const preset = () => presets.find((p) => p.name === active);
@@ -29,19 +41,35 @@
         presets.map((p) => ({ id: `cmd:preset:${p.name}`, module: 'commands', title: `Preset : ${p.name}`, subtitle: p.name === active ? 'Preset actif' : 'Changer de preset', icon: '' })),
       );
       const q = fold(query.trim());
-      const all = cmds.concat(apps);
+      if (/^b64 /.test(query)) return [{ id: 'tool:b64', module: 'tools', title: btoa(unescape(encodeURIComponent(query.slice(4)))), subtitle: 'Base64', icon: '', actions: [{ id: 'copy', title: 'Copier' }] }];
+      const all = cmds.concat(apps, others);
       const hits = q ? all.filter((i) => fold(i.title).includes(q)) : apps.slice(0, 4);
       return hits.slice(0, preset().max_results);
     },
-    activate: ({ id }) => {
-      if (id === 'cmd:settings') return 'settings';
+    activate: ({ id, action, arg }) => {
+      if (id === 'cmd:settings') return { kind: 'settings' };
+      if (id === 'tool:diff') return { kind: 'view', text: 'diff' };
       if (id.startsWith('cmd:preset:')) {
         active = id.slice('cmd:preset:'.length);
         emit('landry://preset', { preset: preset(), warning: null });
-        return 'keep';
+        return { kind: 'keep' };
       }
-      return 'hide';
+      if (action === 'rename') return { kind: 'message', text: `Renommé en ~/Documents/${arg}` };
+      if (action === 'trash') return { kind: 'message', text: 'facture-octobre.pdf mis à la corbeille' };
+      return { kind: 'hide' };
     },
+    item_actions: ({ id }) => [...others, ...apps].find((i) => i.id === id)?.actions ?? [],
+    preview: ({ id }) =>
+      id.startsWith('proj:')
+        ? { kind: 'props', rows: [['Branche', 'main'], ['État', '2 modifiés'], ['Scripts npm', 'dev, build']] }
+        : id.startsWith('file:')
+          ? { kind: 'props', rows: [['Taille', '182.4 Ko'], ['Modifié', '12/10/2026 18:02']] }
+          : { kind: 'none' },
+    diff_texts: ({ a, b }) => {
+      const x = a.split('\n'), y = b.split('\n');
+      return x.map((l, i) => (l === y[i] ? { tag: 'eq', text: l } : { tag: 'del', text: l })).concat(y.filter((l, i) => l !== x[i]).map((text) => ({ tag: 'ins', text })));
+    },
+    copy_text: () => null,
     painted: () => null,
     hide: () => console.log('[mock] hide'),
     settings_layer: () => null,

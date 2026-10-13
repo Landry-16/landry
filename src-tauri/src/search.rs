@@ -5,7 +5,34 @@ use nucleo::{Config, Matcher, Utf32Str};
 use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+/// A secondary action shown with Ctrl+K. The first action of an item is its Enter action.
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
+pub struct Action {
+    pub id: String,
+    pub title: String,
+    /// When set, the bar asks for a text argument with this placeholder before running.
+    pub arg: Option<String>,
+    /// Prefilled argument (e.g. the current name for a rename).
+    pub value: String,
+    pub danger: bool,
+}
+
+impl Action {
+    pub fn new(id: &str, title: &str) -> Action {
+        Action { id: id.into(), title: title.into(), ..Default::default() }
+    }
+    pub fn ask(mut self, placeholder: &str, value: &str) -> Action {
+        self.arg = Some(placeholder.into());
+        self.value = value.into();
+        self
+    }
+    pub fn danger(mut self) -> Action {
+        self.danger = true;
+        self
+    }
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
 pub struct Item {
     /// Stable id, prefixed by module: "app:code.desktop", "cmd:settings".
     pub id: String,
@@ -17,6 +44,10 @@ pub struct Item {
     /// Extra searchable text (keywords, program name), weighted lower than the title.
     #[serde(skip)]
     pub keywords: Vec<String>,
+    pub actions: Vec<Action>,
+    /// Module payload (path, value to copy...), never sent to the UI.
+    #[serde(skip)]
+    pub data: String,
 }
 
 /// Lowercase and strip French and common Latin accents.
@@ -108,6 +139,12 @@ impl Ranker {
         };
         // Ties keep the items' own order (stable sort).
         scored.sort_by(|a, b| b.1.cmp(&a.1));
+        // Drop scattered subsequence matches far below the best one ("vsc" in a long file name).
+        if let Some(&(_, best)) = scored.first() {
+            if !q.is_empty() {
+                scored.retain(|&(_, s)| s * 3 >= best);
+            }
+        }
         scored.into_iter().take(limit).map(|(i, _)| i).collect()
     }
 }
@@ -121,9 +158,8 @@ mod tests {
             id: id.into(),
             module: "apps".into(),
             title: title.into(),
-            subtitle: String::new(),
-            icon: String::new(),
             keywords: kw.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
         }
     }
 
@@ -172,6 +208,15 @@ mod tests {
         assert_eq!(titles(&items, "fi", &f)[0], "Files");
         assert_eq!(titles(&items, "", &f), vec!["Files"]);
         assert!(titles(&items, "", &HashMap::new()).is_empty());
+    }
+
+    #[test]
+    fn weak_scattered_matches_are_dropped() {
+        let items = vec![
+            item("a", "Visual Studio Code", &[]),
+            item("b", "Convention-stage-Tech2-2-mois-Sandes-SAVARIMUTHU.pdf", &[]),
+        ];
+        assert_eq!(titles(&items, "vsc", &HashMap::new()), vec!["Visual Studio Code"]);
     }
 
     #[test]

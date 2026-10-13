@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { styleString } from './lib/theme.js';
 
@@ -15,7 +16,7 @@
   ];
 
   let presets = $state([]);
-  let selectedName = $state(active);
+  let selectedName = $state(untrack(() => active));
   let draft = $state(null);
   let original = $state('');
   let mode = $state('form');
@@ -23,7 +24,8 @@
   let jsonError = $state('');
   let message = $state('');
   let failure = $state('');
-  let colorScheme = $state(systemDark ? 'dark' : 'light');
+  // Initial values only: the editor keeps its own selection afterwards.
+  let colorScheme = $state(untrack(() => (systemDark ? 'dark' : 'light')));
   let confirmDelete = $state(false);
   let importPath = $state('');
   let root = $state();

@@ -2,9 +2,11 @@ mod apps;
 mod config;
 mod engine;
 mod ipc;
+mod modules;
 mod paths;
 mod search;
 mod usage;
+mod util;
 
 use base64::Engine as _;
 use config::{Preset, PresetInfo};
@@ -139,7 +141,44 @@ fn apply_outcome(app: &AppHandle, outcome: &Outcome) {
         Outcome::Settings => {
             let _ = app.emit("landry://open-settings", ());
         }
-        Outcome::Keep => {}
+        Outcome::Copy(text) => {
+            set_clipboard(app, text.clone());
+            hide_bar(app);
+        }
+        Outcome::Pick => {
+            hide_bar(app);
+            let h = app.clone();
+            std::thread::spawn(move || pick_color(&h));
+        }
+        // Shown or applied by the frontend.
+        Outcome::Keep | Outcome::Message(_) | Outcome::Fill(_) | Outcome::View(_) => {}
+    }
+}
+
+/// The clipboard belongs to the resident process, so it survives hiding the bar.
+fn set_clipboard(app: &AppHandle, text: String) {
+    let (tx, rx) = mpsc::channel();
+    let _ = app.run_on_main_thread(move || {
+        let cb = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        cb.set_text(&text);
+        cb.store();
+        let _ = tx.send(());
+    });
+    let _ = rx.recv_timeout(Duration::from_secs(1));
+}
+
+/// Screen color picker through the Screenshot portal, then show the bar with the color.
+fn pick_color(app: &AppHandle) {
+    let picked = tauri::async_runtime::block_on(async {
+        ashpd::desktop::Color::pick().send().await?.response()
+    });
+    match picked {
+        Ok(c) => {
+            let hex = modules::color::Rgb { r: c.red(), g: c.green(), b: c.blue() }.hex();
+            show_bar(app, String::new());
+            let _ = app.emit("landry://fill", hex);
+        }
+        Err(e) => eprintln!("landry: pipette annulée ou indisponible : {e}"),
     }
 }
 
@@ -176,15 +215,35 @@ fn handle(app: &AppHandle, req: ipc::Request) -> String {
             let result = engine(app).run_query(&rest.join(" "));
             match result {
                 Ok((title, outcome)) => {
-                    if outcome == Outcome::Settings {
-                        show_bar(app, req.token);
-                    }
                     apply_outcome(app, &outcome);
+                    match &outcome {
+                        Outcome::Settings => {
+                            show_bar(app, req.token);
+                            let _ = app.emit("landry://open-settings", ());
+                        }
+                        Outcome::Fill(q) => {
+                            show_bar(app, req.token);
+                            let _ = app.emit("landry://fill", q.clone());
+                        }
+                        Outcome::View(v) => {
+                            show_bar(app, req.token);
+                            let _ = app.emit("landry://view", v.clone());
+                        }
+                        _ => {}
+                    }
                     emit_preset(app);
-                    format!("ok {title}")
+                    match outcome {
+                        Outcome::Message(m) => format!("ok {title} : {m}"),
+                        _ => format!("ok {title}"),
+                    }
                 }
                 Err(e) => format!("err {e}"),
             }
+        }
+        ["search", rest @ ..] => {
+            let items = engine(app).search(&rest.join(" "));
+            let lines: Vec<String> = items.iter().map(|i| format!("[{}] {} ({})", i.module, i.title, i.subtitle)).collect();
+            format!("ok {}", lines.join(" | "))
         }
         ["preset", "list"] => {
             let names: Vec<String> = engine(app).store.list().into_iter().map(|i| i.name).collect();
@@ -208,7 +267,7 @@ fn handle(app: &AppHandle, req: ipc::Request) -> String {
             }
         }
         _ => format!(
-            "err commande inconnue : {}. Commandes : toggle, show, hide, run <texte>, preset list, preset show <nom>, preset use <nom>, reload, quit",
+            "err commande inconnue : {}. Commandes : toggle, show, hide, search <texte>, run <texte>, preset list, preset show <nom>, preset use <nom>, reload, quit",
             req.args.join(" ")
         ),
     }
@@ -241,13 +300,49 @@ fn search(state: State<EngineState>, query: String) -> Vec<search::Item> {
 }
 
 #[tauri::command]
-fn activate(app: AppHandle, id: String, query: String) -> Result<Outcome, String> {
-    let outcome = engine(&app).activate(&id, &query)?;
+fn activate(app: AppHandle, id: String, action: String, arg: String, query: String) -> Result<Outcome, String> {
+    let outcome = engine(&app).activate(&id, &action, &arg, &query)?;
     if id.starts_with("cmd:preset:") || id == "cmd:reload" {
         emit_preset(&app);
     }
     apply_outcome(&app, &outcome);
     Ok(outcome)
+}
+
+#[tauri::command]
+fn item_actions(state: State<EngineState>, id: String) -> Vec<search::Action> {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).actions(&id)
+}
+
+#[tauri::command]
+fn preview(state: State<EngineState>, id: String) -> modules::Preview {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).preview(&id)
+}
+
+#[derive(Serialize)]
+struct DiffLine {
+    tag: &'static str,
+    text: String,
+}
+
+#[tauri::command]
+fn diff_texts(a: String, b: String) -> Vec<DiffLine> {
+    similar::TextDiff::from_lines(&a, &b)
+        .iter_all_changes()
+        .map(|c| DiffLine {
+            tag: match c.tag() {
+                similar::ChangeTag::Delete => "del",
+                similar::ChangeTag::Insert => "ins",
+                similar::ChangeTag::Equal => "eq",
+            },
+            text: c.value().trim_end_matches('\n').to_string(),
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn copy_text(app: AppHandle, text: String) {
+    set_clipboard(&app, text);
 }
 
 #[tauri::command]
@@ -409,6 +504,33 @@ fn index_apps(app: &AppHandle) {
     eprintln!("landry: {count} applications indexées en {} ms", start.elapsed().as_millis());
 }
 
+/// Tools, SSH hosts, projects and files; files stay watched afterwards.
+fn index_others(app: &AppHandle) {
+    let settings = engine(app).settings.clone();
+    {
+        let mut e = engine(app);
+        e.set_index("tools", modules::tools::catalog());
+        e.set_index("system", modules::system::ssh_items());
+    }
+    // Projects: names first, git states a moment later.
+    let fast = modules::projects::scan(&settings, false);
+    engine(app).set_index("projects", fast);
+    let h = app.clone();
+    let s2 = settings.clone();
+    std::thread::spawn(move || {
+        let full = modules::projects::scan(&s2, true);
+        engine(&h).set_index("projects", full);
+    });
+
+    let start = Instant::now();
+    let files = modules::files::scan(&settings);
+    let n = files.len();
+    engine(app).set_index("files", files);
+    eprintln!("landry: {n} fichiers indexés en {} ms", start.elapsed().as_millis());
+    let h = app.clone();
+    modules::files::watch(settings, move |files| engine(&h).set_index("files", files));
+}
+
 fn read_system_dark() -> bool {
     std::process::Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "color-scheme"])
@@ -459,6 +581,10 @@ fn daemon() {
             ui_state,
             search,
             activate,
+            item_actions,
+            preview,
+            diff_texts,
+            copy_text,
             painted,
             hide,
             settings_layer,
@@ -477,6 +603,8 @@ fn daemon() {
             std::thread::spawn(move || ipc::serve(listener, move |req| handle(&h, req)));
             let h = app.handle().clone();
             std::thread::spawn(move || index_apps(&h));
+            let h = app.handle().clone();
+            std::thread::spawn(move || index_others(&h));
             let h = app.handle().clone();
             std::thread::spawn(move || watch_theme(h));
             Ok(())

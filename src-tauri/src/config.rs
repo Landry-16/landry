@@ -9,7 +9,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub const DEFAULT_NAME: &str = "Défaut";
 
 /// Every module the bar knows, in default display order.
-pub const MODULES: &[&str] = &["commands", "apps"];
+pub const MODULES: &[&str] = &["commands", "apps", "tools", "projects", "files", "system", "cloud"];
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -327,6 +327,14 @@ pub struct Settings {
     pub aliases: BTreeMap<String, String>,
     /// prefix -> URL with {q}, e.g. "gh" -> "https://github.com/search?q={q}".
     pub search_prefixes: BTreeMap<String, String>,
+    /// Folders indexed for file search. Empty: the XDG user folders (Documents, Downloads...).
+    pub file_roots: Vec<String>,
+    /// Where git repositories are looked for.
+    pub projects_root: String,
+    /// Command templates. Placeholders become single arguments, no shell involved.
+    pub editor: String,
+    pub terminal: String,
+    pub terminal_run: String,
 }
 
 impl Default for Settings {
@@ -345,6 +353,11 @@ impl Default for Settings {
             locale: "fr".into(),
             aliases: BTreeMap::new(),
             search_prefixes: prefixes.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+            file_roots: Vec::new(),
+            projects_root: "~/dev".into(),
+            editor: "code {path}".into(),
+            terminal: "gnome-terminal --working-directory={dir}".into(),
+            terminal_run: "gnome-terminal --working-directory={dir} -- bash -lc {cmd}".into(),
         }
     }
 }

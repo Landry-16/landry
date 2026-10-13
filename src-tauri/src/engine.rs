@@ -2,19 +2,29 @@
 
 use crate::apps::App;
 use crate::config::{Preset, Settings, Store};
-use crate::search::{Item, Ranker};
+use crate::modules::{self, files, Preview};
+use crate::search::{Action, Item, Ranker};
 use crate::usage;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// What the frontend should do after an activation.
 #[derive(Serialize, Debug, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[serde(tag = "kind", content = "text", rename_all = "lowercase")]
 pub enum Outcome {
     Hide,
     Keep,
     Settings,
+    /// Keep the bar open and show this text.
+    Message(String),
+    /// Put the text in the clipboard, then hide.
+    Copy(String),
+    /// Replace the query with this text (tool catalog).
+    Fill(String),
+    /// Open a frontend view (e.g. "diff").
+    View(String),
+    /// Hide, run the screen color picker, then show the picked color.
+    Pick,
 }
 
 pub struct Engine {
@@ -23,8 +33,10 @@ pub struct Engine {
     pub settings: Settings,
     /// Shown once in the bar: broken preset or settings file.
     pub warning: Option<String>,
-    apps: Vec<Item>,
-    app_paths: HashMap<String, PathBuf>,
+    /// Items kept up to date by background indexers, per module.
+    index: HashMap<&'static str, Vec<Item>>,
+    /// Last results sent to the UI, so activation and preview get the full item back.
+    shown: HashMap<String, Item>,
     db: Option<usage::Db>,
     frecency: HashMap<String, f64>,
     ranker: Ranker,
@@ -43,8 +55,8 @@ impl Engine {
             preset: Preset::default(),
             settings: Settings::default(),
             warning: None,
-            apps: Vec::new(),
-            app_paths: HashMap::new(),
+            index: HashMap::new(),
+            shown: HashMap::new(),
             db,
             frecency,
             ranker: Ranker::default(),
@@ -62,9 +74,12 @@ impl Engine {
         self.warning = w2.or(w1);
     }
 
+    pub fn set_index(&mut self, module: &'static str, items: Vec<Item>) {
+        self.index.insert(module, items);
+    }
+
     pub fn set_apps(&mut self, apps: Vec<App>, icons: &HashMap<String, String>) {
-        self.app_paths = apps.iter().map(|a| (format!("app:{}", a.id), a.path.clone())).collect();
-        self.apps = apps
+        let items = apps
             .into_iter()
             .map(|a| {
                 let mut keywords = a.keywords;
@@ -79,9 +94,12 @@ impl Engine {
                     title: a.name,
                     icon: icons.get(&a.icon).cloned().unwrap_or_default(),
                     keywords,
+                    actions: vec![Action::new("launch", "Lancer"), Action::new("reveal", "Afficher le fichier .desktop")],
+                    data: a.path.to_string_lossy().into_owned(),
                 }
             })
             .collect();
+        self.set_index("apps", items);
     }
 
     fn command_items(&self) -> Vec<Item> {
@@ -90,8 +108,8 @@ impl Engine {
             module: "commands".into(),
             title: title.into(),
             subtitle: subtitle.into(),
-            icon: String::new(),
             keywords: kw.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
         };
         let mut out = vec![
             cmd("settings", "Réglages Landry", "Presets, apparence, alias", &["settings", "preferences", "config"]),
@@ -110,33 +128,58 @@ impl Engine {
         out
     }
 
-    /// Candidate items in module display order; disabled modules are left out.
-    fn candidates(&self) -> Vec<Item> {
-        let mut out = Vec::new();
-        for m in self.preset.module_order().into_iter().filter(|m| m.enabled) {
-            match m.id.as_str() {
-                "commands" => out.extend(self.command_items()),
-                "apps" => out.extend(self.apps.iter().cloned()),
-                _ => {}
-            }
-        }
-        out
+    fn enabled(&self) -> Vec<String> {
+        self.preset.module_order().into_iter().filter(|m| m.enabled).map(|m| m.id).collect()
     }
 
     pub fn search(&mut self, query: &str) -> Vec<Item> {
-        let items = self.candidates();
         let limit = self.preset.max_results as usize;
-        let mut ranked: Vec<Item> =
-            self.ranker.rank(&items, query, &self.frecency, limit).into_iter().map(|i| items[i].clone()).collect();
+        let enabled = self.enabled();
+        let (text, filter) = files::parse_filters(query);
+
+        let (dynamic, items) = if !filter.is_empty() {
+            // Type or date filters only make sense for files.
+            let files = if enabled.iter().any(|m| m == "files") { self.index.get("files") } else { None };
+            (Vec::new(), files.map(|f| f.iter().filter(|i| filter.matches(i)).cloned().collect()).unwrap_or_default())
+        } else {
+            let dynamic = modules::query(&enabled, &self.settings, query.trim());
+            let mut items = Vec::new();
+            for m in &enabled {
+                match m.as_str() {
+                    "commands" => items.extend(self.command_items()),
+                    // Thousands of files: only once the query says enough.
+                    "files" if text.chars().count() < 2 => {}
+                    other => {
+                        if let Some(v) = self.index.get(other) {
+                            items.extend(v.iter().cloned());
+                        }
+                    }
+                }
+            }
+            (dynamic, items)
+        };
+
+        let mut ranked: Vec<Item> = if filter.is_empty() || !text.is_empty() {
+            self.ranker.rank(&items, &text, &self.frecency, limit).into_iter().map(|i| items[i].clone()).collect()
+        } else {
+            // Filter alone: most recent files first.
+            let mut v = items;
+            v.sort_by(|a, b| b.data.cmp(&a.data));
+            v.truncate(limit);
+            v
+        };
         // An alias puts its target first, whatever the score.
         if let Some(target) = self.settings.aliases.get(query.trim()) {
-            if let Some(it) = items.iter().find(|i| &i.id == target) {
+            if let Some(it) = items_by_id(&self.index, &self.command_items(), target) {
                 ranked.retain(|i| i.id != it.id);
-                ranked.insert(0, it.clone());
-                ranked.truncate(limit);
+                ranked.insert(0, it);
             }
         }
-        ranked
+        let mut out = dynamic;
+        out.extend(ranked);
+        out.truncate(limit);
+        self.shown = out.iter().map(|i| (i.id.clone(), i.clone())).collect();
+        out
     }
 
     pub fn history(&self) -> Vec<String> {
@@ -152,35 +195,53 @@ impl Engine {
         }
     }
 
-    pub fn activate(&mut self, id: &str, query: &str) -> Result<Outcome, String> {
-        let outcome = if let Some(path) = self.app_paths.get(id) {
-            crate::apps::launch(path)?;
-            Outcome::Hide
-        } else if let Some(name) = id.strip_prefix("cmd:preset:") {
+    fn find(&self, id: &str) -> Option<Item> {
+        self.shown.get(id).cloned().or_else(|| items_by_id(&self.index, &self.command_items(), id))
+    }
+
+    /// Run `action` (empty: the item's first action) with an optional text argument.
+    pub fn activate(&mut self, id: &str, action: &str, arg: &str, query: &str) -> Result<Outcome, String> {
+        let outcome = if let Some(name) = id.strip_prefix("cmd:preset:") {
             self.use_preset(name)?;
             Outcome::Keep
-        } else {
+        } else if id.starts_with("cmd:") {
             match id {
                 "cmd:settings" => Outcome::Settings,
                 "cmd:reload" => {
                     self.reload_config();
-                    Outcome::Keep
+                    Outcome::Message("Configuration rechargée.".into())
                 }
                 "cmd:quit" => {
                     self.quit_requested = true;
                     Outcome::Hide
                 }
-                _ => return Err(format!("élément inconnu : {id}")),
+                _ => return Err(format!("commande inconnue : {id}")),
             }
+        } else {
+            let item = self.find(id).ok_or_else(|| format!("élément introuvable : {id}"))?;
+            let action = if action.is_empty() {
+                item.actions.first().map(|a| a.id.clone()).unwrap_or_default()
+            } else {
+                action.to_string()
+            };
+            modules::run(&self.settings, &item, &action, arg)?
         };
         self.record(id, query);
         Ok(outcome)
     }
 
+    pub fn actions(&self, id: &str) -> Vec<Action> {
+        self.find(id).map(|i| modules::actions(&i)).unwrap_or_default()
+    }
+
+    pub fn preview(&self, id: &str) -> Preview {
+        self.find(id).map(|i| modules::preview(&i)).unwrap_or(Preview::None)
+    }
+
     /// Best match for a query, as `landry run <query>` does.
     pub fn run_query(&mut self, query: &str) -> Result<(String, Outcome), String> {
         let first = self.search(query).into_iter().next().ok_or_else(|| format!("aucun résultat pour « {query} »"))?;
-        let outcome = self.activate(&first.id, query)?;
+        let outcome = self.activate(&first.id, "", "", query)?;
         Ok((first.title, outcome))
     }
 
@@ -191,9 +252,14 @@ impl Engine {
     }
 }
 
+fn items_by_id(index: &HashMap<&'static str, Vec<Item>>, commands: &[Item], id: &str) -> Option<Item> {
+    commands.iter().chain(index.values().flatten()).find(|i| i.id == id).cloned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn engine() -> (Engine, PathBuf) {
         static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -212,7 +278,10 @@ mod tests {
             exec_name: exec.into(),
             icon: String::new(),
         };
-        e.set_apps(vec![app("code.desktop", "Visual Studio Code", "code"), app("t.desktop", "Terminal", "gnome-terminal")], &HashMap::new());
+        e.set_apps(
+            vec![app("code.desktop", "Visual Studio Code", "code"), app("t.desktop", "Terminal", "gnome-terminal")],
+            &HashMap::new(),
+        );
         (e, dir)
     }
 
@@ -239,10 +308,19 @@ mod tests {
         let (mut e, dir) = engine();
         e.settings.aliases.insert("t".into(), "app:t.desktop".into());
         assert_eq!(e.search("t")[0].id, "app:t.desktop");
-        assert_eq!(e.activate("cmd:preset:Minimal", "min").unwrap(), Outcome::Keep);
+        assert_eq!(e.activate("cmd:preset:Minimal", "", "", "min").unwrap(), Outcome::Keep);
         assert_eq!(e.preset.name, "Minimal");
         assert_eq!(e.store.settings().0.active_preset, "Minimal");
         assert!(e.history().contains(&"min".to_string()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn tool_results_come_first_and_copy() {
+        let (mut e, dir) = engine();
+        let r = e.search("b64 bonjour");
+        assert_eq!(r[0].title, "Ym9uam91cg==");
+        assert_eq!(e.activate(&r[0].id, "", "", "b64 bonjour").unwrap(), Outcome::Copy("Ym9uam91cg==".into()));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
