@@ -10,7 +10,7 @@ pub const DEFAULT_NAME: &str = "Défaut";
 
 /// Every module the bar knows, in default display order.
 pub const MODULES: &[&str] = &[
-    "commands", "timers", "tracking", "apps", "snippets", "text", "calc", "tools", "web", "tasks", "notes", "projects", "files",
+    "commands", "timers", "tracking", "apps", "scripts", "snippets", "text", "calc", "tools", "web", "tasks", "notes", "projects", "files",
     "system", "cloud",
 ];
 

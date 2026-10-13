@@ -177,6 +177,13 @@ fn apply_outcome(app: &AppHandle, outcome: &Outcome) {
             let (h, kind) = (app.clone(), kind.clone());
             std::thread::spawn(move || capture(&h, &kind));
         }
+        Outcome::Run { program, args, label, silent } => {
+            if *silent {
+                hide_bar(app);
+            }
+            let (h, program, args, label, silent) = (app.clone(), program.clone(), args.clone(), label.clone(), *silent);
+            std::thread::spawn(move || run_script(&h, &program, &args, &label, silent));
+        }
         // Shown or applied by the frontend.
         Outcome::Keep | Outcome::Message(_) | Outcome::Fill(_) | Outcome::View(_) | Outcome::Ask(_) => {}
     }
@@ -208,6 +215,56 @@ fn set_clipboard(app: &AppHandle, text: String) {
         let _ = tx.send(());
     });
     let _ = rx.recv_timeout(Duration::from_secs(1));
+}
+
+/// Run a user script with a time limit; show its output in the bar (or a notification).
+fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, silent: bool) {
+    use std::io::Read;
+    let child = std::process::Command::new(program)
+        .args(args)
+        .current_dir(paths::expand("~"))
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
+    let mut child = match child {
+        Ok(c) => c,
+        Err(e) => return notify(label, &format!("Lancement impossible : {e}")),
+    };
+    let start = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(s)) => break Some(s),
+            Ok(None) if start.elapsed() > Duration::from_secs(60) => {
+                let _ = child.kill();
+                break None;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            Err(_) => break None,
+        }
+    };
+    let mut out = String::new();
+    let mut err = String::new();
+    if let Some(mut o) = child.stdout.take() {
+        let _ = o.read_to_string(&mut out);
+    }
+    if let Some(mut e) = child.stderr.take() {
+        let _ = e.read_to_string(&mut err);
+    }
+    let text = match status {
+        None => format!("{label} : arrêté après 60 s"),
+        Some(s) if s.success() => {
+            let o = out.trim();
+            if o.is_empty() { format!("{label} : terminé") } else { o.chars().take(2000).collect() }
+        }
+        Some(s) => format!("{label} : échec ({s}) {}", err.trim().chars().take(500).collect::<String>()),
+    };
+    let visible = bar(app).and_then(|w| w.is_visible().ok()).unwrap_or(false);
+    if silent || !visible {
+        notify(label, &text);
+    } else {
+        let _ = app.emit("landry://notice", text);
+    }
 }
 
 /// Interactive screenshot through the portal (GNOME saves it in Pictures/Screenshots), then
@@ -395,7 +452,7 @@ fn search(state: State<EngineState>, query: String) -> Vec<search::Item> {
 }
 
 #[tauri::command]
-fn activate(app: AppHandle, id: String, action: String, arg: String, query: String) -> Result<Outcome, String> {
+async fn activate(app: AppHandle, id: String, action: String, arg: String, query: String) -> Result<Outcome, String> {
     if id.starts_with("snip:") {
         // {presse-papiers} needs the clipboard as it is now, before Landry replaces it.
         let clip = read_selection(&app, false).unwrap_or_default();
@@ -415,8 +472,8 @@ fn item_actions(state: State<EngineState>, id: String) -> Vec<search::Action> {
 }
 
 #[tauri::command]
-fn preview(state: State<EngineState>, id: String) -> modules::Preview {
-    state.0.lock().unwrap_or_else(|e| e.into_inner()).preview(&id)
+async fn preview(app: AppHandle, id: String) -> modules::Preview {
+    engine(&app).preview(&id)
 }
 
 #[derive(Serialize)]
@@ -696,6 +753,10 @@ fn index_others(app: &AppHandle) {
     }
     let bookmarks = modules::web::bookmarks();
     engine(app).set_index("web", bookmarks);
+    modules::scripts::seed();
+    engine(app).set_index("scripts", modules::scripts::scan());
+    let h = app.clone();
+    std::thread::spawn(move || watch_scripts(&h));
     // Projects: names first, git states a moment later.
     let fast = modules::projects::scan(&settings, false);
     engine(app).set_index("projects", fast);
@@ -729,6 +790,26 @@ fn clock_loop(app: &AppHandle) {
         if running && bar(app).and_then(|w| w.is_visible().ok()).unwrap_or(false) {
             let _ = app.emit("landry://refresh", ());
         }
+    }
+}
+
+/// Hot reload: rescan the scripts folder when it changes.
+fn watch_scripts(app: &AppHandle) {
+    use notify::{RecursiveMode, Watcher};
+    let (tx, rx) = mpsc::channel();
+    let Ok(mut w) = notify::recommended_watcher(move |r: notify::Result<notify::Event>| {
+        if r.is_ok_and(|e| !e.kind.is_access()) {
+            let _ = tx.send(());
+        }
+    }) else {
+        return;
+    };
+    if w.watch(&modules::scripts::dir(), RecursiveMode::NonRecursive).is_err() {
+        return;
+    }
+    while rx.recv().is_ok() {
+        while rx.recv_timeout(Duration::from_millis(300)).is_ok() {}
+        engine(app).set_index("scripts", modules::scripts::scan());
     }
 }
 

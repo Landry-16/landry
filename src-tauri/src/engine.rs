@@ -31,6 +31,8 @@ pub enum Outcome {
     Ask(Vec<String>),
     /// Hide, take an interactive screenshot through the portal: "save" or "ocr".
     Capture(String),
+    /// Run a user script outside the engine lock; its output is shown when it ends.
+    Run { program: String, args: Vec<String>, label: String, silent: bool },
 }
 
 pub struct Engine {

@@ -18,6 +18,7 @@
     timers: 'Minuteur',
     tracking: 'Suivi',
     web: 'Web',
+    scripts: 'Script',
     text: 'Texte',
     projects: 'Projet',
     files: 'Fichier',
@@ -181,6 +182,10 @@
           break;
         case 'keep':
           runSearch(query);
+          break;
+        case 'run':
+          if (out.text.silent) query = '';
+          else message = `Exécution : ${out.text.label}…`;
           break;
       }
     } catch (e) {
@@ -521,6 +526,9 @@
 
   .notice {
     margin: 0;
+    white-space: pre-wrap;
+    max-height: 40%;
+    overflow-y: auto;
     padding: 8px calc(var(--pad) + 8px);
     font-size: 0.85em;
     color: var(--fg);

@@ -19,6 +19,7 @@
     timers: 'Minuteurs, Pomodoro',
     tracking: 'Suivi du temps',
     web: 'Web, favoris, traduction',
+    scripts: 'Scripts',
     tools: 'Boîte à outils',
     projects: 'Projets git',
     files: 'Fichiers',
