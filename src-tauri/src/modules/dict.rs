@@ -182,7 +182,8 @@ fn fetch_definitions(_: &Settings, key: &str) -> Result<Vec<Item>, String> {
             item(
                 format!("dict:def:{i}"),
                 def.clone(),
-                format!("{word} · {pos}"),
+                // The texts are CC BY-SA: their source is named next to them.
+                format!("{word} · {pos} · {}", if lang == "fr" { "Wiktionnaire" } else { "Wiktionary" }),
                 vec![Action::new("open", "Ouvrir le Wiktionnaire"), Action::new("copy", "Copier la définition")],
                 format!("{}\t{def}", page(lang, word)),
             )
@@ -213,6 +214,7 @@ fn fetch_synonyms(_: &Settings, key: &str) -> Result<Vec<Item>, String> {
         )]);
     }
     let def = if lang == "fr" { "/def" } else { "/def en" };
+    let source = if lang == "fr" { "Wiktionnaire" } else { "Datamuse" };
     Ok(words
         .into_iter()
         .take(15)
@@ -220,7 +222,7 @@ fn fetch_synonyms(_: &Settings, key: &str) -> Result<Vec<Item>, String> {
             item(
                 format!("dict:syn:{w}"),
                 w.clone(),
-                tf("Synonyme de « {w} »", &[("w", &word)]),
+                format!("{} · {source}", tf("Synonyme de « {w} »", &[("w", &word)])),
                 vec![Action::new("paste", "Coller"), Action::new("copy", "Copier"), Action::new("define", "Définition")],
                 format!("{def} {w}\t{w}"),
             )

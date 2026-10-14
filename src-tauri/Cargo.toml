@@ -2,6 +2,7 @@
 name = "landry"
 version = "0.4.0"
 description = "Landry, compagnon du quotidien pour Ubuntu GNOME"
+license = "MIT"
 edition = "2021"
 
 [build-dependencies]
