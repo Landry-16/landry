@@ -1,0 +1,15 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--font, system-ui, sans-serif);
+  font-size: calc(var(--font-size, 15px) * var(--zoom, 1));
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
