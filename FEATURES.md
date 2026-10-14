@@ -22,7 +22,6 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Aide F1 (raccourcis et exemples) | fait |
 | La liste défile pour suivre la sélection aux flèches | fait |
 | Accueil personnalisable : Réglages > Général > Accueil liste les commandes, applications ou éléments montrés sur la barre vide, et seulement eux jusqu'à la première lettre | fait |
-| Barre centrée sur l'écran quels que soient le dock et la barre du haut (fenêtre plein écran transparente) | fait ; à vérifier sur le vrai bureau |
 
 ## Trouver
 
@@ -174,6 +173,7 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Livraison | Fusionner `dev` dans `main` une fois la 0.4.0 essayée sur le bureau |
 | Diffusion sans rendre le dépôt public | Dépôt public `landry-releases` qui ne contient que le `.deb` et `install.sh`, alimenté par le workflow de publication ; en attente de ton accord |
 | Avant une diffusion publique | Mentions légales du site (hébergeur), vérification du nom « Landry » auprès de l'INPI |
+| Centrage exact | La fenêtre de la taille de l'écran est décalée par le dock et la barre du haut ; le plein écran a été essayé puis retiré (fond noir). Piste : laisser l'extension GNOME placer la fenêtre |
 | Épingler depuis la barre | Action Ctrl+K « Épingler à l'accueil » sur n'importe quel élément |
 | Pistes à plus long terme | Intégration IA |
 

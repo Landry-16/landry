@@ -132,19 +132,19 @@ fn show_bar(app: &AppHandle, token: String) -> String {
     status
 }
 
-/// Wayland clients cannot place their windows. Screen layer: a transparent fullscreen window,
-/// the bar placed in CSS. Fullscreen, because a plain window the size of the screen gets pushed
-/// aside by the dock and the top bar, which shifts the bar off centre. Window layer: a window
-/// the size of the bar, placed by GNOME, faster to map (less surface).
+/// Wayland clients cannot place their windows. Screen layer: a transparent window the size
+/// of the screen, the bar placed in CSS. Window layer: a window the size of the bar, placed by
+/// GNOME, faster to map (less surface).
+/// Not fullscreen: mutter paints a black background behind a fullscreen window.
 fn fit_layer(w: &WebviewWindow, (layer, width, max_height): (config::Layer, u32, u32)) {
-    let screen = layer == config::Layer::Screen;
-    if w.is_fullscreen().unwrap_or(!screen) != screen {
-        let _ = w.set_fullscreen(screen);
-    }
-    if screen {
-        return;
-    }
-    let target = tauri::LogicalSize::new(f64::from(width) + 64.0, f64::from(max_height) + 64.0);
+    let target = match layer {
+        config::Layer::Window => tauri::LogicalSize::new(f64::from(width) + 64.0, f64::from(max_height) + 64.0),
+        config::Layer::Screen => {
+            let monitor = w.current_monitor().ok().flatten().or_else(|| w.primary_monitor().ok().flatten());
+            let Some(m) = monitor else { return };
+            m.size().to_logical::<f64>(m.scale_factor())
+        }
+    };
     let scale = w.scale_factor().unwrap_or(1.0);
     let current = w.inner_size().map(|s| s.to_logical::<f64>(scale)).ok();
     if current.is_none_or(|c| (c.width - target.width).abs() > 1.0 || (c.height - target.height).abs() > 1.0) {
