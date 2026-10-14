@@ -194,6 +194,33 @@ impl Engine {
         self.preset.module_order().into_iter().filter(|m| m.enabled).map(|m| m.id).collect()
     }
 
+    /// The custom home: an item id or an exact app or command title (with its icon), otherwise a command that
+    /// runs like the same text typed and Enter.
+    fn home_items(&self) -> Vec<Item> {
+        let commands = self.command_items();
+        let fold = crate::search::fold;
+        self.settings
+            .home
+            .iter()
+            .map(|entry| {
+                items_by_id(&self.index, &commands, entry)
+                    .or_else(|| commands.iter().chain(self.index.get("apps").into_iter().flatten()).find(|i| fold(&i.title) == fold(entry)).cloned())
+                    .unwrap_or_else(|| Item {
+                        id: format!("home:{entry}"),
+                        module: "commands".into(),
+                        title: entry.clone(),
+                        // "/spotify ": waits for the rest, so Enter writes it in the bar.
+                        actions: if entry.ends_with(' ') {
+                            vec![Action::new("fill", "Écrire dans la barre"), Action::new("run", "Exécuter")]
+                        } else {
+                            vec![Action::new("run", "Exécuter"), Action::new("fill", "Écrire dans la barre")]
+                        },
+                        ..Default::default()
+                    })
+            })
+            .collect()
+    }
+
     /// An alias whose target is text (not an item id) stands for that text: "pp" -> "/spotify play".
     /// The first word alone also works, followed by arguments: with "sp = /spotify", "sp daft punk"
     /// -> "/spotify daft punk".
@@ -226,6 +253,12 @@ impl Engine {
                     return out;
                 }
             }
+        }
+        if query.trim().is_empty() && !self.settings.home.is_empty() {
+            let mut out = self.home_items();
+            self.shown = out.iter().map(|i| (i.id.clone(), i.clone())).collect();
+            out.iter_mut().for_each(|i| localize_actions(&mut i.actions));
+            return out;
         }
         // An alias pointing at an item id (text aliases were expanded by `search`).
         let alias = self.settings.aliases.get(query.trim()).cloned();
@@ -308,6 +341,10 @@ impl Engine {
 
     /// Run `action` (empty: the item's first action) with an optional text argument.
     pub fn activate(&mut self, id: &str, action: &str, arg: &str, query: &str) -> Result<Outcome, String> {
+        if let Some(text) = id.strip_prefix("home:") {
+            // No action given: the first one, "fill" for an entry that ends with a space.
+            return if action == "fill" || (action.is_empty() && text.ends_with(' ')) { Ok(Outcome::Fill(format!("{} ", text.trim_end()))) } else { self.run_query(text).map(|(_, o)| o) };
+        }
         let outcome = if let Some(name) = id.strip_prefix("cmd:preset:") {
             self.use_preset(name)?;
             Outcome::Keep
@@ -500,6 +537,17 @@ mod tests {
         assert_eq!(e.search("pp")[0].title, "Lecture ou pause");
         assert_eq!(e.search("sp daft punk")[0].title, "Chercher « daft punk » dans Spotify");
         assert_eq!(e.search("min")[0].title, "Lancer un minuteur de 5 min");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn custom_home_shows_only_its_entries() {
+        let (mut e, dir) = engine();
+        e.settings.home = vec!["app:t.desktop".into(), "visual studio code".into(), "/spotify ".into()];
+        let home: Vec<String> = e.search("").into_iter().map(|i| i.id).collect();
+        assert_eq!(home, ["app:t.desktop", "app:code.desktop", "home:/spotify "]);
+        assert_eq!(e.activate("home:/spotify ", "", "", "").unwrap(), Outcome::Fill("/spotify ".into()), "finie par une espace : s'écrit dans la barre");
+        assert_eq!(e.search("term")[0].id, "app:t.desktop", "taper retrouve la recherche normale");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

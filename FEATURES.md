@@ -20,6 +20,9 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Actions dangereuses confirmées par un deuxième Entrée | fait |
 | Ligne de raccourcis en bas, indications sur barre vide ou sans résultat | fait |
 | Aide F1 (raccourcis et exemples) | fait |
+| La liste défile pour suivre la sélection aux flèches | fait |
+| Accueil personnalisable : Réglages > Général > Accueil liste les commandes, applications ou éléments montrés sur la barre vide, et seulement eux jusqu'à la première lettre | fait |
+| Barre centrée sur l'écran quels que soient le dock et la barre du haut (fenêtre plein écran transparente) | fait ; à vérifier sur le vrai bureau |
 
 ## Trouver
 
@@ -161,6 +164,9 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Extension GNOME sur le vrai bureau | Testée dans un GNOME Shell imbriqué ; à vérifier après une reconnexion |
 | Première version publiée | Pousser l'étiquette `v0.4.0` pour lancer la construction du paquet sur GitHub |
 | Livraison | Fusionner `dev` dans `main` une fois la 0.4.0 essayée sur le bureau |
+| Diffusion sans rendre le dépôt public | Dépôt public `landry-releases` qui ne contient que le `.deb` et `install.sh`, alimenté par le workflow de publication ; en attente de ton accord |
+| Avant une diffusion publique | Licence (fichier `LICENSE`), mentions des licences tierces, mention RGPD pour les services en ligne |
+| Épingler depuis la barre | Action Ctrl+K « Épingler à l'accueil » sur n'importe quel élément |
 | Pistes à plus long terme | Intégration IA |
 
 ## Plus tard
