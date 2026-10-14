@@ -465,6 +465,9 @@ pub struct Settings {
     pub read_selection: bool,
     /// Enter on an app that already has a window switches to it (needs the GNOME extension).
     pub switch_to_window: bool,
+    /// What the bar shows before anything is typed, in order: commands ("/spotify play"), app
+    /// names or item ids. Empty: the usual home (current timers, frequent items).
+    pub home: Vec<String>,
 }
 
 impl Default for Settings {
@@ -496,6 +499,7 @@ impl Default for Settings {
             translate_url: String::new(),
             read_selection: true,
             switch_to_window: true,
+            home: Vec::new(),
         }
     }
 }

@@ -5,6 +5,7 @@
 
   let settings = $state(null);
   let roots = $state('');
+  let home = $state('');
   let aliases = $state('');
   let prefixes = $state('');
   let message = $state('');
@@ -17,6 +18,7 @@
     invoke('get_settings').then((s) => {
       settings = s;
       roots = s.file_roots.join('\n');
+      home = (s.home ?? []).join('\n');
       aliases = formatPairs(s.aliases);
       prefixes = formatPairs(s.search_prefixes);
     });
@@ -55,6 +57,8 @@
       micro_rate: num(settings.micro_rate),
       micro_tax_rate: num(settings.micro_tax_rate),
       file_roots: roots.split('\n').map((l) => l.trim()).filter(Boolean),
+      // Keep a trailing space: it means "write in the bar" rather than "run".
+      home: home.split('\n').map((l) => l.trimStart()).filter((l) => l.trim()),
       aliases: a.map,
       search_prefixes: p.map,
     };
@@ -113,6 +117,13 @@
       <label>{t('Cotisations micro-entreprise (%)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_rate} placeholder={t('à renseigner')} /></label>
       <label>{t('Versement libératoire (%, facultatif)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_tax_rate} /></label>
       <p class="hint">{t("Exemples : « 100 ht », « 120 ttc », « ca 3000 ». Les taux changent chaque année : vérifie-les sur le site de l'Urssaf.")}</p>
+    </div>
+
+    <div class="group">
+      <h2>{t('Accueil')}</h2>
+      <label for="home">{t("Ce que la barre montre avant que tu tapes, une ligne par élément : une commande (/spotify play, pomodoro), le nom d'une application, ou l'identifiant d'un élément. Vide : l'accueil habituel (minuteurs en cours, éléments fréquents).")}</label>
+      <textarea id="home" bind:value={home} rows="5" placeholder={'Firefox\n/spotify play\npomodoro\n/meteo Paris'} spellcheck="false" aria-describedby="home-hint"></textarea>
+      <p class="hint" id="home-hint">{t("Entrée lance la commande, Ctrl+K la recopie dans la barre. Une commande finie par une espace, comme « /spotify  », s'écrit dans la barre pour que tu la complètes.")}</p>
     </div>
 
     <div class="group">

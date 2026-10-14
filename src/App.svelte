@@ -157,6 +157,8 @@
   });
 
   $effect(() => {
+    // querySelector is not reactive: read `selected` so the effect follows the arrow keys.
+    selected;
     list?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   });
 
