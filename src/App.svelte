@@ -340,7 +340,8 @@
       else selected = Math.min(selected + 1, results.length - 1);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if ((query === '' || browsing) && history.length) recall(1);
+      // On an empty bar, history only from the top row: lower rows move up the list first.
+      if (((query === '' && selected === 0) || browsing) && history.length) recall(1);
       else selected = Math.max(selected - 1, 0);
     } else if (e.key === 'Enter') {
       e.preventDefault();
