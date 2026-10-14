@@ -48,7 +48,9 @@
       "deb": {
         "files": {
           "/usr/share/gnome-shell/extensions/landry@landry-16.github.io/extension.js": "../extension/landry@landry-16.github.io/extension.js",
-          "/usr/share/gnome-shell/extensions/landry@landry-16.github.io/metadata.json": "../extension/landry@landry-16.github.io/metadata.json"
+          "/usr/share/gnome-shell/extensions/landry@landry-16.github.io/metadata.json": "../extension/landry@landry-16.github.io/metadata.json",
+          "/usr/share/doc/landry/LICENSE": "../LICENSE",
+          "/usr/share/doc/landry/THIRD_PARTY_LICENSES.md": "../THIRD_PARTY_LICENSES.md"
         },
         "depends": [
           "xdg-desktop-portal-gnome",
@@ -69,6 +71,8 @@
           "ripgrep"
         ]
       }
-    }
+    },
+    "copyright": "Copyright (c) 2026 Landry-16",
+    "license": "MIT"
   }
 }

@@ -86,3 +86,7 @@ npm test                          # interface tests
 ```
 
 The full guide is in French: [docs/GUIDE_DEVELOPPEMENT.md](docs/GUIDE_DEVELOPPEMENT.md). Progress and decisions: [STATUS.md](STATUS.md).
+
+## License
+
+Landry is released under the MIT license ([LICENSE](LICENSE)). The third-party components shipped in the package and their licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), regenerated with `python3 scripts/third-party-licenses.py > THIRD_PARTY_LICENSES.md` after a dependency change.

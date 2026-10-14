@@ -146,6 +146,14 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Mode couleurs forcées (contraste élevé) | fait |
 | Contrôle des contrastes (WCAG AA) dans l'éditeur de presets | fait |
 
+## Licences
+
+| Fonctionnalité | État |
+| --- | --- |
+| Licence MIT (`LICENSE`), déclarée dans Cargo.toml, package.json et le paquet | fait |
+| Licences des composants tiers (`THIRD_PARTY_LICENSES.md`, généré par `scripts/third-party-licenses.py`), installées dans `/usr/share/doc/landry/` | fait |
+| Source citée à côté des définitions et synonymes (Wiktionnaire en CC BY-SA, Datamuse) | fait |
+
 ## Confidentialité
 
 - Tout reste en local. Réseau seulement pour les taux BCE, GitHub, Vercel, la traduction et `/meteo`, quand tu les demandes.
@@ -165,7 +173,7 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Première version publiée | Pousser l'étiquette `v0.4.0` pour lancer la construction du paquet sur GitHub |
 | Livraison | Fusionner `dev` dans `main` une fois la 0.4.0 essayée sur le bureau |
 | Diffusion sans rendre le dépôt public | Dépôt public `landry-releases` qui ne contient que le `.deb` et `install.sh`, alimenté par le workflow de publication ; en attente de ton accord |
-| Avant une diffusion publique | Licence (fichier `LICENSE`), mentions des licences tierces, mention RGPD pour les services en ligne |
+| Avant une diffusion publique | Mentions légales du site (hébergeur), vérification du nom « Landry » auprès de l'INPI |
 | Épingler depuis la barre | Action Ctrl+K « Épingler à l'accueil » sur n'importe quel élément |
 | Pistes à plus long terme | Intégration IA |
 

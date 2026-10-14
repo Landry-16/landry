@@ -170,3 +170,7 @@ npm test                          # tests de l'interface
 ```
 
 L'état d'avancement, les mesures et les décisions sont dans `STATUS.md`.
+
+## Licence
+
+Landry est sous licence MIT ([LICENSE](LICENSE)). Les composants tiers inclus dans le paquet et leurs licences sont listés dans [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), régénéré par `python3 scripts/third-party-licenses.py > THIRD_PARTY_LICENSES.md` après un changement de dépendances.
