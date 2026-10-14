@@ -1,7 +1,9 @@
 name: Release
 
-# Push a tag such as v0.4.0: tests run, the .deb is built and attached to a GitHub release.
-# ./install.sh --release (and the curl install) then installs it without building anything.
+# Push a tag such as v0.4.0: tests run, then the packages are built and attached to a GitHub
+# release: .deb (Debian, Ubuntu, Mint, Arch through install.sh), .rpm (Fedora, openSUSE),
+# AppImage (any other distribution) and the Windows installer (.exe).
+# ./install.sh --release (and the curl install) then installs the right one without building.
 on:
   push:
     tags: ["v*"]
@@ -10,11 +12,21 @@ permissions:
   contents: write
 
 jobs:
-  deb:
-    runs-on: ubuntu-24.04
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest supported Ubuntu: its glibc 2.35 keeps the binary working on Debian 12 and later.
+          - os: ubuntu-22.04
+            bundles: deb,rpm,appimage
+          - os: windows-latest
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: System libraries
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev libdbus-1-dev patchelf
@@ -28,6 +40,7 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       - name: Tests
+        shell: bash
         run: |
           npm test
           (cd src-tauri && cargo test)
@@ -38,8 +51,11 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Landry ${{ github.ref_name }}
           releaseBody: |
-            Install: download the .deb below, then `sudo apt install ./Landry_*_amd64.deb`, or run `./install.sh --release`.
-            Installation : télécharge le .deb ci-dessous, puis `sudo apt install ./Landry_*_amd64.deb`, ou lance `./install.sh --release`.
+            Linux: `./install.sh --release` picks the right package. By hand: `sudo apt install ./Landry_*_amd64.deb` (Debian, Ubuntu), `sudo dnf install ./Landry-*.x86_64.rpm` (Fedora), `sudo zypper install --allow-unsigned-rpm ./Landry-*.x86_64.rpm` (openSUSE), or the AppImage elsewhere.
+            Windows 10 and 11: run `Landry_*_x64-setup.exe`, then press Ctrl+Alt+Space.
+
+            Linux : `./install.sh --release` choisit le bon paquet. À la main : `sudo apt install ./Landry_*_amd64.deb` (Debian, Ubuntu), `sudo dnf install ./Landry-*.x86_64.rpm` (Fedora), `sudo zypper install --allow-unsigned-rpm ./Landry-*.x86_64.rpm` (openSUSE), ou l'AppImage ailleurs.
+            Windows 10 et 11 : lance `Landry_*_x64-setup.exe`, puis appuie sur Ctrl+Alt+Espace.
           releaseDraft: false
           prerelease: false
-          args: --bundles deb
+          args: --bundles ${{ matrix.bundles }}
