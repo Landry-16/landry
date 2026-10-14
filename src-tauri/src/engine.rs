@@ -501,7 +501,7 @@ mod tests {
         let (mut e, dir) = engine();
         assert_eq!(e.search("vsc")[0].id, "app:code.desktop");
         assert_eq!(e.search("dense")[0].id, "cmd:preset:Dense");
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -511,7 +511,7 @@ mod tests {
         assert!(e.search("terminal").iter().all(|i| i.module != "apps"));
         e.preset.max_results = 1;
         assert_eq!(e.search("preset").len(), 1);
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -525,7 +525,7 @@ mod tests {
         assert_eq!(e.preset.name, "Minimal");
         assert_eq!(e.store.settings().0.active_preset, "Minimal");
         assert!(e.history().contains(&"min".to_string()));
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -537,7 +537,7 @@ mod tests {
         assert_eq!(e.search("pp")[0].title, "Lecture ou pause");
         assert_eq!(e.search("sp daft punk")[0].title, "Chercher « daft punk » dans Spotify");
         assert_eq!(e.search("min")[0].title, "Lancer un minuteur de 5 min");
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -548,7 +548,7 @@ mod tests {
         assert_eq!(home, ["app:t.desktop", "app:code.desktop", "home:/spotify "]);
         assert_eq!(e.activate("home:/spotify ", "", "", "").unwrap(), Outcome::Fill("/spotify ".into()), "finie par une espace : s'écrit dans la barre");
         assert_eq!(e.search("term")[0].id, "app:t.desktop", "taper retrouve la recherche normale");
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -563,7 +563,7 @@ mod tests {
             Outcome::Paste { text: "Bonjour Léa !".into(), back: 2 }
         );
         assert!(e.save_snippet(&usage::Snippet { id: 0, name: " ".into(), keyword: String::new(), body: "x".into() }).is_err());
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -576,7 +576,7 @@ mod tests {
         assert_eq!(e.search("/dense")[0].id, "cmd:preset:Dense", "un mot inconnu redevient une recherche");
         e.preset.modules.iter_mut().filter(|m| m.id == "slash").for_each(|m| m.enabled = false);
         assert!(e.search("/").iter().all(|i| i.module != "slash"), "module désactivé : « / » est un texte ordinaire");
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -586,6 +586,6 @@ mod tests {
         let r = e.search("b64 bonjour");
         assert_eq!(r[0].title, "Ym9uam91cg==");
         assert_eq!(e.activate(&r[0].id, "", "", "b64 bonjour").unwrap(), Outcome::Copy("Ym9uam91cg==".into()));
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

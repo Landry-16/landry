@@ -376,7 +376,20 @@ pub fn run(settings: &Settings, item: &Item, action: &str, arg: &str) -> Result<
     })
 }
 
+/// Conversions only: Windows has no gio to list the apps for a file type.
+#[cfg(windows)]
+pub fn extra_actions(item: &Item) -> Vec<Action> {
+    let Some((_, false, path)) = parts(item) else { return vec![] };
+    crate::modules::convert::actions(Path::new(path))
+}
+
+#[cfg(windows)]
+fn open_with(_app_id: &str, _path: &str) -> Result<(), String> {
+    Err(t("« Ouvrir avec » n'existe que sous Linux."))
+}
+
 /// "Open with" actions for the file's type, computed when the action panel opens.
+#[cfg(target_os = "linux")]
 pub fn extra_actions(item: &Item) -> Vec<Action> {
     use gtk::gio::prelude::AppInfoExt;
     let Some((_, false, path)) = parts(item) else { return vec![] };
@@ -391,6 +404,7 @@ pub fn extra_actions(item: &Item) -> Vec<Action> {
     out
 }
 
+#[cfg(target_os = "linux")]
 fn open_with(app_id: &str, path: &str) -> Result<(), String> {
     use gtk::gio::prelude::AppInfoExt;
     let app = gtk::gio::DesktopAppInfo::new(app_id).ok_or_else(|| tf("application introuvable : {a}", &[("a", &app_id)]))?;

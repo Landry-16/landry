@@ -1,3 +1,6 @@
+// Release builds on Windows are GUI programs: no console window behind the bar.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod apps;
 mod backup;
 mod config;
@@ -15,13 +18,11 @@ mod session;
 mod usage;
 mod util;
 
-use base64::Engine as _;
 use config::{Preset, PresetInfo};
 use engine::{Engine, Outcome};
 use serde::Serialize;
 use std::collections::HashMap;
-use std::io::BufRead;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -34,11 +35,25 @@ static SYSTEM_DARK: AtomicBool = AtomicBool::new(false);
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    #[cfg(windows)]
+    if args.first().map(String::as_str) != Some("daemon") {
+        attach_console();
+    }
     match args.first().map(String::as_str) {
         Some("daemon") => daemon(),
         Some("doctor") => std::process::exit(doctor::run()),
         _ => std::process::exit(ipc::client(&args)),
     }
+}
+
+/// Print the CLI replies in the terminal `landry` was typed in (a GUI program has no console).
+#[cfg(windows)]
+fn attach_console() {
+    extern "system" {
+        fn AttachConsole(process: u32) -> i32;
+    }
+    // ATTACH_PARENT_PROCESS; fails harmlessly when started from the Start Menu.
+    unsafe { AttachConsole(u32::MAX) };
 }
 
 fn engine(app: &AppHandle) -> MutexGuard<'_, Engine> {
@@ -90,6 +105,9 @@ fn show_bar(app: &AppHandle, token: String) -> String {
     let _ = app.run_on_main_thread(move || {
         fit_layer(&win, layer);
         // On Wayland, an xdg-activation token from the launcher lets mutter grant focus.
+        #[cfg(windows)]
+        let _ = token;
+        #[cfg(target_os = "linux")]
         if !token.is_empty() {
             if let Ok(gw) = win.gtk_window() {
                 use gtk::prelude::GtkWindowExt;
@@ -218,6 +236,7 @@ fn notify(summary: &str, body: &str) {
 /// Read a GTK clipboard (CLIPBOARD or PRIMARY). The request is asynchronous: the owner of the
 /// selection may never answer (Spotify under XWayland does not), and `wait_for_text` would then
 /// freeze the main loop, so the bar could not open again until that app quit.
+#[cfg(target_os = "linux")]
 fn read_selection(app: &AppHandle, primary: bool) -> Option<String> {
     let (tx, rx) = mpsc::channel();
     let _ = app.run_on_main_thread(move || {
@@ -229,7 +248,17 @@ fn read_selection(app: &AppHandle, primary: bool) -> Option<String> {
     rx.recv_timeout(Duration::from_millis(500)).ok().flatten()
 }
 
+/// Windows has no PRIMARY selection: only the clipboard can be read.
+#[cfg(windows)]
+fn read_selection(_app: &AppHandle, primary: bool) -> Option<String> {
+    if primary {
+        return None;
+    }
+    arboard::Clipboard::new().ok()?.get_text().ok()
+}
+
 /// The clipboard belongs to the resident process, so it survives hiding the bar.
+#[cfg(target_os = "linux")]
 fn set_clipboard(app: &AppHandle, text: String) {
     let (tx, rx) = mpsc::channel();
     let _ = app.run_on_main_thread(move || {
@@ -241,10 +270,17 @@ fn set_clipboard(app: &AppHandle, text: String) {
     let _ = rx.recv_timeout(Duration::from_secs(1));
 }
 
+#[cfg(windows)]
+fn set_clipboard(_app: &AppHandle, text: String) {
+    if let Err(e) = arboard::Clipboard::new().and_then(|mut c| c.set_text(text)) {
+        eprintln!("landry: presse-papiers indisponible : {e}");
+    }
+}
+
 /// Run a user script with a time limit; show its output in the bar (or a notification).
 fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, silent: bool, limit: u64) {
     use std::io::Read;
-    let child = std::process::Command::new(program)
+    let child = util::quiet(&mut std::process::Command::new(program))
         .args(args)
         .current_dir(paths::expand("~"))
         .stdin(std::process::Stdio::null())
@@ -293,6 +329,7 @@ fn run_script(app: &AppHandle, program: &str, args: &[String], label: &str, sile
 
 /// Interactive screenshot through the portal (GNOME saves it in Pictures/Screenshots), then
 /// copy the image, or the text Tesseract reads in it.
+#[cfg(target_os = "linux")]
 fn capture(app: &AppHandle, kind: &str) {
     // Let the bar disappear before GNOME's screenshot UI freezes the screen.
     std::thread::sleep(Duration::from_millis(250));
@@ -343,7 +380,24 @@ fn capture(app: &AppHandle, kind: &str) {
     );
 }
 
+/// Windows' own snipping tool selects a zone and copies it.
+#[cfg(windows)]
+fn capture(_app: &AppHandle, kind: &str) {
+    if kind == "ocr" {
+        return notify("OCR indisponible", "La lecture de texte à l'écran n'existe que sous Linux pour l'instant.");
+    }
+    if let Err(e) = util::open("ms-screenclip:") {
+        notify("Capture", &e);
+    }
+}
+
+#[cfg(windows)]
+fn pick_color(_app: &AppHandle) {
+    notify("Pipette", "La pipette n'existe que sous Linux pour l'instant.");
+}
+
 /// Screen color picker through the Screenshot portal, then show the bar with the color.
+#[cfg(target_os = "linux")]
 fn pick_color(app: &AppHandle) {
     let picked = tauri::async_runtime::block_on(async {
         ashpd::desktop::Color::pick().send().await?.response()
@@ -661,7 +715,7 @@ struct SetupState {
 async fn setup_state() -> SetupState {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
-        let missing = doctor::checks().into_iter().filter(|c| !c.ok && c.hint.starts_with("sudo ")).map(|c| (c.label, c.hint)).collect();
+        let missing = doctor::checks().into_iter().filter(|c| !c.ok && (c.hint.starts_with("sudo ") || c.hint.starts_with("winget "))).map(|c| (c.label, c.hint)).collect();
         let _ = tx.send(SetupState { shortcut: session::shortcut(), autostart: session::autostart(), missing, extension: session::extension() });
     });
     let fallback = || SetupState { shortcut: None, autostart: false, missing: vec![], extension: session::Extension::Missing };
@@ -674,8 +728,28 @@ async fn extension_enable() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn shortcut_set(accel: String) -> Result<(), String> {
-    session::set_shortcut(&accel)
+async fn shortcut_set(_app: AppHandle, accel: String) -> Result<(), String> {
+    session::set_shortcut(&accel)?;
+    #[cfg(windows)]
+    register_shortcut(&_app)?;
+    Ok(())
+}
+
+/// Windows has no desktop setting running `landry toggle`: the daemon owns the shortcut.
+#[cfg(windows)]
+fn register_shortcut(app: &AppHandle) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+    let accel = session::hotkey(&session::shortcut().unwrap_or_default());
+    let gs = app.global_shortcut();
+    let _ = gs.unregister_all();
+    gs.on_shortcut(accel.as_str(), |app, _, e| {
+        if e.state == ShortcutState::Pressed {
+            let h = app.clone();
+            // show_bar waits for the first frame: never on the event loop thread.
+            std::thread::spawn(move || handle(&h, ipc::Request { args: vec!["toggle".into()], token: String::new() }));
+        }
+    })
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -793,7 +867,9 @@ fn preset_import(state: State<EngineState>, path: String) -> Result<String, Stri
 
 // ---------- Background work ----------
 
-fn data_url(p: &Path) -> Option<String> {
+#[cfg(target_os = "linux")]
+fn data_url(p: &std::path::Path) -> Option<String> {
+    use base64::Engine as _;
     let mime = match p.extension()?.to_str()? {
         "png" => "image/png",
         "svg" => "image/svg+xml",
@@ -806,7 +882,14 @@ fn data_url(p: &Path) -> Option<String> {
     Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
 }
 
+/// Start Menu shortcuts carry no themed icon name: the bar shows its default glyph.
+#[cfg(windows)]
+fn resolve_icons(_app: &AppHandle, _names: Vec<String>) -> HashMap<String, String> {
+    HashMap::new()
+}
+
 /// GTK icon theme lookups must run on the main thread; file reads do not.
+#[cfg(target_os = "linux")]
 fn resolve_icons(app: &AppHandle, names: Vec<String>) -> HashMap<String, String> {
     let (tx, rx) = mpsc::channel();
     let _ = app.run_on_main_thread(move || {
@@ -837,7 +920,7 @@ fn resolve_icons(app: &AppHandle, names: Vec<String>) -> HashMap<String, String>
 
 fn index_apps(app: &AppHandle) {
     let start = Instant::now();
-    let apps = apps::scan(&paths::data_dirs());
+    let apps = apps::scan(&paths::app_dirs());
     let mut names: Vec<String> = apps.iter().map(|a| a.icon.clone()).filter(|n| !n.is_empty()).collect();
     names.sort();
     names.dedup();
@@ -953,6 +1036,25 @@ fn watch_scripts(app: &AppHandle) {
     }
 }
 
+#[cfg(windows)]
+fn read_system_dark() -> bool {
+    util::output("reg", &["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "/v", "AppsUseLightTheme"], None)
+        .is_ok_and(|o| o.contains("0x0"))
+}
+
+/// Windows has no change feed for the theme: check it every few seconds.
+#[cfg(windows)]
+fn watch_theme(app: AppHandle) {
+    loop {
+        let dark = read_system_dark();
+        if SYSTEM_DARK.swap(dark, Ordering::Relaxed) != dark {
+            let _ = app.emit("landry://theme", dark);
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn read_system_dark() -> bool {
     std::process::Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "color-scheme"])
@@ -962,7 +1064,9 @@ fn read_system_dark() -> bool {
 }
 
 /// Follow GNOME's light or dark choice live.
+#[cfg(target_os = "linux")]
 fn watch_theme(app: AppHandle) {
+    use std::io::BufRead;
     SYSTEM_DARK.store(read_system_dark(), Ordering::Relaxed);
     let Ok(child) = std::process::Command::new("gsettings")
         .args(["monitor", "org.gnome.desktop.interface", "color-scheme"])
@@ -997,7 +1101,10 @@ fn daemon() {
     };
     let core = Engine::new(config::Store::new(paths::config_dir()), db);
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(windows)]
+    let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
+    builder
         .manage(Painted(Mutex::new(None)))
         .manage(EngineState(Mutex::new(core)))
         .invoke_handler(tauri::generate_handler![
@@ -1043,6 +1150,10 @@ fn daemon() {
             if let Err(e) = tray(app.handle()) {
                 eprintln!("landry: icône de barre système indisponible : {e}");
             }
+            #[cfg(windows)]
+            if let Err(e) = register_shortcut(app.handle()) {
+                eprintln!("landry: raccourci global indisponible : {e}");
+            }
             let h = app.handle().clone();
             std::thread::spawn(move || ipc::serve(listener, move |req| handle(&h, req)));
             let h = app.handle().clone();
@@ -1050,7 +1161,7 @@ fn daemon() {
                 index_apps(&h);
                 // Installed or removed apps show up without restarting Landry.
                 let h2 = h.clone();
-                apps::watch(&paths::data_dirs(), move || index_apps(&h2));
+                apps::watch(&paths::app_dirs(), move || index_apps(&h2));
             });
             let h = app.handle().clone();
             std::thread::spawn(move || index_others(&h));

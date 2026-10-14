@@ -18,6 +18,7 @@ fn check(label: &str, ok: bool, hint: &str, optional: bool) -> Check {
 
 use util::has;
 
+#[cfg(target_os = "linux")]
 fn portal_interfaces() -> String {
     util::output(
         "gdbus",
@@ -31,6 +32,22 @@ fn first_word(template: &str) -> String {
     template.split_whitespace().next().unwrap_or("").to_string()
 }
 
+/// Windows: no portals nor GNOME; the shortcut and the start at login belong to Landry.
+#[cfg(windows)]
+pub fn checks() -> Vec<Check> {
+    let settings = Store::new(crate::paths::config_dir()).settings().0;
+    let editor = first_word(&settings.editor);
+    let terminal = first_word(&settings.terminal);
+    vec![
+        check("Démarrage avec la session", crate::session::autostart(), "/bienvenue dans la barre, ou Réglages, onglet Général", true),
+        check(&format!("Éditeur : {editor}"), has(&editor), "Réglages, onglet Général, champ Éditeur", true),
+        check(&format!("Terminal : {terminal}"), has(&terminal), "Réglages, onglet Général, champ Terminal", true),
+        check("git (projets)", has("git"), "winget install Git.Git", true),
+        check("Processus résident", crate::ipc::running(), "landry toggle le démarre", true),
+    ]
+}
+
+#[cfg(target_os = "linux")]
 pub fn checks() -> Vec<Check> {
     let settings = Store::new(crate::paths::config_dir()).settings().0;
     let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
@@ -82,7 +99,7 @@ pub fn checks() -> Vec<Check> {
             "/bienvenue pour l'activer, puis reconnecte-toi une fois",
             true,
         ),
-        check("Processus résident", std::os::unix::net::UnixStream::connect(crate::ipc::socket_path()).is_ok(), "landry toggle le démarre", true),
+        check("Processus résident", crate::ipc::running(), "landry toggle le démarre", true),
     ]
 }
 
@@ -119,7 +136,7 @@ mod tests {
     fn helpers() {
         assert_eq!(first_word("gnome-terminal --working-directory={dir}"), "gnome-terminal");
         assert_eq!(first_word(""), "");
-        assert!(has("sh"));
+        assert!(has(if cfg!(windows) { "cmd" } else { "sh" }));
         assert!(!has("landry-programme-inexistant"));
     }
 }

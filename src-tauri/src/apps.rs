@@ -1,4 +1,4 @@
-//! Installed applications from .desktop files (XDG, Flatpak, Snap).
+//! Installed applications from .desktop files (XDG, Flatpak, Snap), or Start Menu shortcuts on Windows.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,6 +20,7 @@ pub struct App {
 }
 
 /// Value of a localized key: `Key[fr_FR]`, then `Key[fr]`, then `Key`.
+#[cfg_attr(windows, allow(dead_code))]
 fn localized<'a>(kv: &'a HashMap<String, String>, key: &str, lang: &str) -> Option<&'a String> {
     let short = lang.split(['_', '.', '@']).next().unwrap_or("");
     let full = lang.split(['.', '@']).next().unwrap_or("");
@@ -29,6 +30,7 @@ fn localized<'a>(kv: &'a HashMap<String, String>, key: &str, lang: &str) -> Opti
 }
 
 /// Parse the [Desktop Entry] group. Returns None for entries that must not be shown.
+#[cfg_attr(windows, allow(dead_code))]
 pub fn parse(id: &str, path: &Path, content: &str, lang: &str, desktop: &str) -> Option<App> {
     let mut kv = HashMap::new();
     let mut in_entry = false;
@@ -85,43 +87,70 @@ pub fn parse(id: &str, path: &Path, content: &str, lang: &str, desktop: &str) ->
     })
 }
 
+/// Entry files: .desktop, or .lnk shortcuts in the Windows Start Menu.
+const ENTRY: &str = if cfg!(windows) { "lnk" } else { "desktop" };
+
 fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     for e in rd.flatten() {
         let p = e.path();
         if p.is_dir() {
             walk(base, &p, out);
-        } else if p.extension().is_some_and(|x| x == "desktop") {
+        } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case(ENTRY)) {
             if let Ok(rel) = p.strip_prefix(base) {
                 // Desktop file id: subdirectories joined with '-'.
-                out.push((rel.to_string_lossy().replace('/', "-"), p));
+                out.push((rel.to_string_lossy().replace(['/', '\\'], "-"), p));
             }
         }
     }
 }
 
+/// A Start Menu shortcut: its file name is the app name. Uninstallers are left out.
+#[cfg(windows)]
+fn shortcut(id: &str, path: &Path) -> Option<App> {
+    let name = path.file_stem()?.to_string_lossy().into_owned();
+    let lower = name.to_lowercase();
+    if lower.starts_with("uninstall") || lower.starts_with("désinstaller") {
+        return None;
+    }
+    Some(App {
+        id: id.to_string(),
+        path: path.to_path_buf(),
+        name,
+        generic: String::new(),
+        comment: String::new(),
+        keywords: vec![],
+        exec_name: String::new(),
+        icon: String::new(),
+        removable: false,
+    })
+}
+
 /// Scan every applications dir. The first dir defining an id wins (user before system).
-pub fn scan(data_dirs: &[PathBuf]) -> Vec<App> {
+pub fn scan(app_dirs: &[PathBuf]) -> Vec<App> {
+    #[cfg(not(windows))]
     let lang = std::env::var("LC_MESSAGES")
         .or_else(|_| std::env::var("LANG"))
         .unwrap_or_else(|_| "C".into());
+    #[cfg(not(windows))]
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
     let mut seen = std::collections::HashSet::new();
     let mut apps = Vec::new();
-    for d in data_dirs {
-        // Snap exports .desktop files directly in /var/lib/snapd/desktop/applications.
-        let base = d.join("applications");
+    for base in app_dirs {
         let mut files = Vec::new();
-        walk(&base, &base, &mut files);
+        walk(base, base, &mut files);
         files.sort();
         for (id, path) in files {
             if !seen.insert(id.clone()) {
                 continue;
             }
+            #[cfg(windows)]
+            let app = shortcut(&id, &path);
+            #[cfg(not(windows))]
             let Ok(content) = std::fs::read_to_string(&path) else { continue };
-            if let Some(app) = parse(&id, &path, &content, &lang, &desktop) {
-                apps.push(app);
-            }
+            #[cfg(not(windows))]
+            let app = parse(&id, &path, &content, &lang, &desktop);
+            apps.extend(app);
         }
     }
     apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -141,7 +170,7 @@ pub fn uninstaller(path: &Path, content: &str, home: &Path) -> Option<(String, V
 
 /// Calls `on_change` once the applications folders have been quiet for 2 s after a change
 /// (install, removal, update). Only folders existing at startup are watched.
-pub fn watch(data_dirs: &[PathBuf], mut on_change: impl FnMut() + Send + 'static) {
+pub fn watch(app_dirs: &[PathBuf], mut on_change: impl FnMut() + Send + 'static) {
     use notify::{RecursiveMode, Watcher};
     let (tx, rx) = std::sync::mpsc::channel();
     let Ok(mut watcher) = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
@@ -151,8 +180,8 @@ pub fn watch(data_dirs: &[PathBuf], mut on_change: impl FnMut() + Send + 'static
     }) else {
         return;
     };
-    for d in data_dirs.iter().map(|d| d.join("applications")).filter(|d| d.is_dir()) {
-        let _ = watcher.watch(&d, RecursiveMode::Recursive);
+    for d in app_dirs.iter().filter(|d| d.is_dir()) {
+        let _ = watcher.watch(d, RecursiveMode::Recursive);
     }
     while rx.recv().is_ok() {
         while rx.recv_timeout(std::time::Duration::from_secs(2)).is_ok() {}
@@ -161,15 +190,13 @@ pub fn watch(data_dirs: &[PathBuf], mut on_change: impl FnMut() + Send + 'static
 }
 
 /// Launch through gio: it handles field codes, Terminal=true and D-Bus activation.
+/// On Windows, Explorer opens the shortcut.
 pub fn launch(path: &Path) -> Result<(), String> {
-    use std::os::unix::process::CommandExt;
-    std::process::Command::new("gio")
-        .arg("launch")
-        .arg(path)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .process_group(0)
+    let mut c = std::process::Command::new(if cfg!(windows) { "explorer" } else { "gio" });
+    if !cfg!(windows) {
+        c.arg("launch");
+    }
+    crate::util::detach(c.arg(path).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()))
         .spawn()
         .map(|_| ())
         .map_err(|e| crate::i18n::tf("lancement impossible : {e}", &[("e", &e)]))
@@ -235,7 +262,7 @@ mod tests {
     #[test]
     fn scans_this_machine() {
         // Smoke test on the real system: Ubuntu always ships some applications.
-        let apps = scan(&crate::paths::data_dirs());
+        let apps = scan(&crate::paths::app_dirs());
         assert!(!apps.is_empty());
     }
 }

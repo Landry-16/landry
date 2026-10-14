@@ -94,6 +94,8 @@ fn fetch(settings: &Settings, key: &str) -> Result<Vec<Item>, String> {
 mod tests {
     use super::*;
 
+    // ':' cannot be in a Windows file name.
+    #[cfg(unix)]
     #[test]
     fn finds_text_in_files_with_grep() {
         let dir = std::env::temp_dir().join(format!("landry-content-{}", std::process::id()));

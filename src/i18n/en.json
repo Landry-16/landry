@@ -882,5 +882,10 @@
   "Écrire dans la barre": "Write in the bar",
   "Accueil": "Home",
   "Ce que la barre montre avant que tu tapes, une ligne par élément : une commande (/spotify play, pomodoro), le nom d'une application, ou l'identifiant d'un élément. Vide : l'accueil habituel (minuteurs en cours, éléments fréquents).": "What the bar shows before you type, one entry per line: a command (/spotify play, pomodoro), an app name, or an item id. Empty: the usual home (running timers, frequent items).",
-  "Entrée lance la commande, Ctrl+K la recopie dans la barre. Une commande finie par une espace, comme « /spotify  », s'écrit dans la barre pour que tu la complètes.": "Enter runs the command, Ctrl+K copies it into the bar. A command ending with a space, like “/spotify ”, is written in the bar for you to complete."
+  "Entrée lance la commande, Ctrl+K la recopie dans la barre. Une commande finie par une espace, comme « /spotify  », s'écrit dans la barre pour que tu la complètes.": "Enter runs the command, Ctrl+K copies it into the bar. A command ending with a space, like “/spotify ”, is written in the bar for you to complete.",
+  "L'extension GNOME n'existe que sous Linux.": "The GNOME extension exists on Linux only.",
+  "« Ouvrir avec » n'existe que sous Linux.": "“Open with” exists on Linux only.",
+  "La lecture de texte à l'écran n'existe que sous Linux pour l'instant.": "Reading text on screen exists on Linux only for now.",
+  "Pipette": "Color picker",
+  "La pipette n'existe que sous Linux pour l'instant.": "The color picker exists on Linux only for now."
 }

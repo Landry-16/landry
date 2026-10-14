@@ -42,16 +42,24 @@ pub fn parse_header(src: &str) -> Header {
 
 /// Interpreter for a script: its shebang if executable, else from the extension.
 pub fn command(path: &Path) -> Option<(String, Vec<String>)> {
-    use std::os::unix::fs::PermissionsExt;
     let p = path.to_string_lossy().into_owned();
-    let executable = std::fs::metadata(path).map(|m| m.permissions().mode() & 0o111 != 0).unwrap_or(false);
+    #[cfg(unix)]
+    let executable = {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(path).map(|m| m.permissions().mode() & 0o111 != 0).unwrap_or(false)
+    };
+    #[cfg(windows)]
+    let executable = path.extension().is_some_and(|x| ["exe", "bat", "cmd"].iter().any(|e| x.eq_ignore_ascii_case(e)));
     if executable {
         return Some((p, vec![]));
     }
     let interp = match path.extension()?.to_str()? {
         "sh" | "bash" => "bash",
+        // python3 is a Microsoft Store stub on a fresh Windows.
+        "py" if cfg!(windows) => "python",
         "py" => "python3",
         "js" | "mjs" | "cjs" => "node",
+        "ps1" => return Some(("powershell".into(), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", &p].map(String::from).to_vec())),
         _ => return None,
     };
     Some((interp.to_string(), vec![p]))
@@ -118,11 +126,17 @@ pub fn seed() {
         return;
     }
     let _ = std::fs::create_dir_all(&d);
+    #[cfg(windows)]
+    let _ = std::fs::write(
+        d.join("bonjour.ps1"),
+        "# @landry title: Bonjour depuis un script\r\n# @landry subtitle: Exemple : modifie ou supprime ce fichier\r\n# @landry argument: Ton prénom\r\n\r\n$nom = if ($args[0]) { $args[0] } else { 'toi' }\r\n\"Bonjour $nom, il est $(Get-Date -Format HH:mm).\"\r\n",
+    );
+    #[cfg(unix)]
     let example = "#!/usr/bin/env bash\n# @landry title: Bonjour depuis un script\n# @landry subtitle: Exemple : modifie ou supprime ce fichier\n# @landry argument: Ton prénom\n\necho \"Bonjour ${1:-toi}, il est $(date +%H:%M).\"\n";
-    let path = d.join("bonjour.sh");
-    if std::fs::write(&path, example).is_ok() {
+    #[cfg(unix)]
+    if std::fs::write(d.join("bonjour.sh"), example).is_ok() {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755));
+        let _ = std::fs::set_permissions(d.join("bonjour.sh"), std::fs::Permissions::from_mode(0o755));
     }
 }
 
@@ -140,6 +154,7 @@ mod tests {
         assert_eq!(parse_header("echo hi"), Header::default());
     }
 
+    #[cfg(unix)]
     #[test]
     fn interpreters() {
         let d = std::env::temp_dir().join(format!("landry-scripts-{}", std::process::id()));
