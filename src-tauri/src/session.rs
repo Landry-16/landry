@@ -5,6 +5,8 @@
 use crate::util;
 use std::path::PathBuf;
 
+const DEFAULT_SHORTCUT: &str = "<Control><Alt>space";
+
 #[cfg(not(windows))]
 const SCHEMA: &str = "org.gnome.settings-daemon.plugins.media-keys";
 #[cfg(not(windows))]
@@ -146,6 +148,24 @@ pub fn set_shortcut(accel: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(windows))]
+/// Ctrl+Alt+Space out of the box: installed once, when Landry has no shortcut yet. A shortcut
+/// the user removes or changes afterwards is left alone.
+pub fn default_shortcut() {
+    let marker = crate::paths::config_dir().join(".shortcut-default");
+    if marker.exists() {
+        return;
+    }
+    if shortcut().is_none() {
+        if let Err(e) = set_shortcut(DEFAULT_SHORTCUT) {
+            // No GNOME settings (another desktop): try again at the next start.
+            return eprintln!("landry: raccourci par défaut impossible : {e}");
+        }
+    }
+    let _ = std::fs::create_dir_all(crate::paths::config_dir());
+    let _ = std::fs::write(marker, "1\n");
+}
+
 /// State of Landry's GNOME Shell extension (open windows, clipboard history).
 #[derive(serde::Serialize, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -219,8 +239,6 @@ pub fn start_service() -> bool {
     false
 }
 
-#[cfg(windows)]
-const DEFAULT_SHORTCUT: &str = "<Control><Alt>space";
 
 #[cfg(windows)]
 fn shortcut_file() -> PathBuf {

@@ -887,5 +887,7 @@
   "« Ouvrir avec » n'existe que sous Linux.": "“Open with” exists on Linux only.",
   "La lecture de texte à l'écran n'existe que sous Linux pour l'instant.": "Reading text on screen exists on Linux only for now.",
   "Pipette": "Color picker",
-  "La pipette n'existe que sous Linux pour l'instant.": "The color picker exists on Linux only for now."
+  "La pipette n'existe que sous Linux pour l'instant.": "The color picker exists on Linux only for now.",
+  "Position de la barre, en pixels depuis le centre. Glisse la barre pour la déplacer ; vide : celle du preset.": "Bar position, in pixels from the centre. Drag the bar to move it; empty: the preset's.",
+  "Recentrer": "Recenter"
 }

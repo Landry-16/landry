@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { applyToRoot, styleOf } from './lib/theme.js';
   import Companion from './Companion.svelte';
   import Ornaments from './Ornaments.svelte';
@@ -39,6 +40,8 @@
   const moduleLabel = (m) => (MODULE_LABELS[m] ? t(MODULE_LABELS[m]) : m);
 
   let preset = $state(null);
+  // [x, y] where the bar was dragged (settings.json), null: the preset's offsets.
+  let barOffset = $state(null);
   let systemDark = $state(false);
   let warning = $state('');
   let error = $state('');
@@ -125,6 +128,7 @@
     i18n.locale = s.locale;
     // First launch: the assistant opens by itself until it is closed once.
     firstRun = s.first_run;
+    barOffset = s.bar_offset ?? null;
     if (firstRun && view === 'bar') view = 'setup';
   }
   let firstRun = false;
@@ -143,8 +147,34 @@
   }
 
   $effect(() => {
-    if (preset) applyToRoot(preset, systemDark);
+    if (!preset) return;
+    applyToRoot(preset, systemDark);
+    if (barOffset) {
+      document.documentElement.style.setProperty('--offset-x', `${barOffset[0]}px`);
+      document.documentElement.style.setProperty('--offset-y', `${barOffset[1]}px`);
+    }
   });
+
+  // Drag the bar from any spot that is not a control: it opens where it was dropped from now on.
+  // Wayland does not let apps place their windows, so the bar moves inside its screen-sized layer.
+  function drag(e) {
+    if (e.button !== 0 || e.target.closest('input, textarea, button, a, select, li, pre')) return;
+    e.preventDefault();
+    if (preset.layout.layer === 'window') return getCurrentWindow().startDragging();
+    const [x0, y0] = barOffset ?? [preset.layout.offset_x, preset.layout.offset_y];
+    let moved = false;
+    const move = (m) => {
+      moved = true;
+      barOffset = [Math.round(x0 + m.clientX - e.clientX), Math.round(y0 + m.clientY - e.clientY)];
+    };
+    const drop = () => {
+      window.removeEventListener('mousemove', move);
+      if (moved) invoke('bar_offset_set', { offset: barOffset }).catch((err) => (error = String(err)));
+      focusInput();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', drop, { once: true });
+  }
 
   $effect(() => {
     // Re-run on every query change, and when the preset changes (module list, max results).
@@ -420,7 +450,8 @@
     {#key shownCount}
       <div class="frame">
       <Ornaments ornament={style.ornament} />
-      <section class="bar" aria-label="Landry">
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <section class="bar" aria-label="Landry" onmousedown={drag}>
         <Particles count={style.particles} ornament={style.ornament} />
         <div class="field">
           {#if style.companion}

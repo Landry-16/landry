@@ -46,7 +46,9 @@ Lance `landry` (ou Landry depuis la liste des applications). Un assistant s'ouvr
 
 On le rouvre avec `/bienvenue` dans la barre ou `landry setup`.
 
-GNOME 46 n'a pas encore le portail des raccourcis globaux : le raccourci est un raccourci personnalisé de GNOME qui exécute `landry toggle`. `scripts/install-shortcut.sh` fait la même chose en ligne de commande. Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
+La barre se déplace à la souris : attrape-la par une zone libre (autour du champ, le nom du preset) et glisse-la. Elle se rouvre ensuite à cet endroit. La position se règle aussi à la main dans Réglages, Général (bouton Recentrer pour revenir au centre).
+
+Ctrl+Alt+Espace est installé dès le premier démarrage, sans passer par l'assistant. Sous GNOME, c'est un raccourci personnalisé qui exécute `landry toggle` (GNOME 46 n'a pas encore le portail des raccourcis globaux). `scripts/install-shortcut.sh` fait la même chose en ligne de commande. Super+Espace est déjà pris par GNOME pour changer la disposition du clavier.
 
 ## Démarrage
 

@@ -33,6 +33,7 @@
   ];
 
   const fold = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  let barOffset = null;
   const preset = () => presets.find((p) => p.name === active);
   const emit = (event, payload) =>
     (listeners[event] ?? []).forEach((id) => callbacks.get(id)?.({ event, id: 0, payload }));
@@ -42,7 +43,8 @@
     shortcut_set: () => null,
     setup_done: () => null,
     autostart_set: () => null,
-    ui_state: () => ({ first_run: new URLSearchParams(location.search).has('first'), preset: preset(), warning: null, history: ['vsc', 'term'], locale: new URLSearchParams(location.search).get('lang') ?? 'fr', system_dark: matchMedia('(prefers-color-scheme: dark)').matches }),
+    ui_state: () => ({ first_run: new URLSearchParams(location.search).has('first'), preset: preset(), warning: null, history: ['vsc', 'term'], locale: new URLSearchParams(location.search).get('lang') ?? 'fr', system_dark: matchMedia('(prefers-color-scheme: dark)').matches, bar_offset: barOffset }),
+    bar_offset_set: ({ offset }) => void (barOffset = offset),
     search: ({ query }) => {
       const cmds = [{ id: 'cmd:settings', module: 'commands', title: 'Réglages Landry', subtitle: 'Presets, apparence, alias', icon: '' }].concat(
         presets.map((p) => ({ id: `cmd:preset:${p.name}`, module: 'commands', title: `Preset : ${p.name}`, subtitle: p.name === active ? 'Preset actif' : 'Changer de preset', icon: '' })),
@@ -81,7 +83,7 @@
       return x.map((l, i) => (l === y[i] ? { tag: 'eq', text: l } : { tag: 'del', text: l })).concat(y.filter((l, i) => l !== x[i]).map((text) => ({ tag: 'ins', text })));
     },
     copy_text: () => null,
-    get_settings: () => ({ version: 1, active_preset: active, locale: 'fr', aliases: { nc: 'nacre' }, search_prefixes: { g: 'https://www.google.com/search?q={q}', gh: 'https://github.com/search?q={q}' }, file_roots: [], projects_root: '~/dev', editor: 'code {path}', terminal: 'gnome-terminal --working-directory={dir}', terminal_run: 'gnome-terminal --working-directory={dir} -- bash -lc {cmd}', vercel_team: '' }),
+    get_settings: () => ({ version: 1, active_preset: active, locale: 'fr', aliases: { nc: 'nacre' }, search_prefixes: { g: 'https://www.google.com/search?q={q}', gh: 'https://github.com/search?q={q}' }, file_roots: [], projects_root: '~/dev', editor: 'code {path}', terminal: 'gnome-terminal --working-directory={dir}', terminal_run: 'gnome-terminal --working-directory={dir} -- bash -lc {cmd}', vercel_team: '', bar_offset: barOffset }),
     save_settings: () => null,
     accounts: () => [{ id: 'github', label: 'GitHub', configured: true }, { id: 'vercel', label: 'Vercel', configured: false }],
     set_token: () => null,

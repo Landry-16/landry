@@ -519,6 +519,7 @@ struct UiState {
     locale: String,
     /// The first-run assistant has never been closed.
     first_run: bool,
+    bar_offset: Option<[i32; 2]>,
 }
 
 // Commands that touch the engine, a process or the clipboard are async: Tauri runs sync commands
@@ -534,6 +535,7 @@ async fn ui_state(app: AppHandle) -> UiState {
         system_dark: SYSTEM_DARK.load(Ordering::Relaxed),
         locale: e.settings.locale.clone(),
         first_run: session::first_run(),
+        bar_offset: e.settings.bar_offset,
     }
 }
 
@@ -782,6 +784,15 @@ fn settings_layer(app: AppHandle, on: bool) {
     let l = &e.preset.layout;
     let layer = if on { config::Layer::Screen } else { l.layer };
     fit_layer(&w, (layer, l.width, l.max_height));
+}
+
+/// The bar was dragged: it opens there from now on. None puts it back at the preset's place.
+#[tauri::command]
+async fn bar_offset_set(app: AppHandle, offset: Option<[i32; 2]>) -> Result<(), String> {
+    let mut e = engine(&app);
+    let mut s = e.settings.clone();
+    s.bar_offset = offset;
+    e.save_settings(s)
 }
 
 #[tauri::command]
@@ -1136,6 +1147,7 @@ fn daemon() {
             painted,
             hide,
             settings_layer,
+            bar_offset_set,
             preset_list,
             preset_get,
             preset_save,
@@ -1154,6 +1166,8 @@ fn daemon() {
             if let Err(e) = register_shortcut(app.handle()) {
                 eprintln!("landry: raccourci global indisponible : {e}");
             }
+            #[cfg(not(windows))]
+            std::thread::spawn(session::default_shortcut);
             let h = app.handle().clone();
             std::thread::spawn(move || ipc::serve(listener, move |req| handle(&h, req)));
             let h = app.handle().clone();
