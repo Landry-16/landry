@@ -10,8 +10,9 @@
 # installs the latest release, and builds from source only when no package is available.
 # Debian, Ubuntu, Mint (apt, .deb), Fedora (dnf, .rpm), openSUSE (zypper, .rpm), Arch, Manjaro
 # (pacman, a package made from the .deb). Elsewhere: the AppImage of the latest release.
-# Environment: LANDRY_BRANCH (dev), LANDRY_SRC (~/.local/src/landry), LANDRY_DRY_RUN=1 prints the
-# commands that need sudo instead of running them.
+# Environment: LANDRY_BRANCH (dev), LANDRY_SRC (~/.local/src/landry), LANDRY_PACKAGE=file installs
+# a .deb or .rpm downloaded by hand, LANDRY_DRY_RUN=1 prints the commands that need sudo instead of
+# running them.
 set -euo pipefail
 
 REPO_SLUG=Landry-16/landry
@@ -224,6 +225,8 @@ package() {
   bsdtar -xOf landry.deb 'data.tar*' | bsdtar -xf - -C "\$pkgdir"
 }
 PKGBUILD
+  # makepkg needs fakeroot and the rest of base-devel.
+  pacman -Q base-devel >/dev/null 2>&1 || root pacman -S --needed --noconfirm base-devel
   if dry; then
     echo "  [dry-run] makepkg -si dans $dir"
   else
@@ -246,7 +249,11 @@ if [[ $MODE == auto ]]; then
   if [[ -f $HERE/src-tauri/Cargo.toml ]]; then MODE=source; else MODE=release; fi
 fi
 
-PKG=
+PKG=${LANDRY_PACKAGE:-}
+if [[ -n $PKG ]]; then
+  [[ -f $PKG ]] || die "paquet introuvable : $PKG"
+  MODE=file
+fi
 if [[ $MODE == release ]]; then
   step "Téléchargement du paquet de la dernière version"
   if download_release; then
