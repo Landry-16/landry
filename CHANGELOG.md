@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.1 (2026-10-15)
+## 0.5.1 (2026-10-15)
 
 Ubuntu 26.04 et GNOME 50.
 
@@ -12,6 +12,10 @@ Ubuntu 26.04 et GNOME 50.
 - La barre se déplace à la souris : on l'attrape par une zone libre (autour du champ, le nom du preset) et on la glisse. Elle se rouvre ensuite à cet endroit, quel que soit le preset. La position (en pixels depuis le centre) se modifie aussi à la main dans Réglages, Général, avec un bouton Recentrer. Elle est enregistrée dans `settings.json` (`bar_offset`).
 - Ctrl+Alt+Espace est installé comme raccourci dès le premier démarrage sous GNOME, même sans passer par l'assistant. Un raccourci déjà choisi n'est pas touché, et un raccourci supprimé ou changé ensuite n'est pas remis.
 
+## 0.5.0
+
+Paquets pour les grandes distributions Linux (.deb, .rpm, AppImage) et installateur Windows.
+
 ## 0.4.0
 
-Première version publiée : paquets .deb, .rpm, AppImage et installateur Windows.
+Première version publiée.
