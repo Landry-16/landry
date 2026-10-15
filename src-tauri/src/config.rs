@@ -468,6 +468,8 @@ pub struct Settings {
     /// What the bar shows before anything is typed, in order: commands ("/spotify play"), app
     /// names or item ids. Empty: the usual home (current timers, frequent items).
     pub home: Vec<String>,
+    /// Where the bar was dragged, [x, y] in pixels from the centre. None: the preset's offsets.
+    pub bar_offset: Option<[i32; 2]>,
 }
 
 impl Default for Settings {
@@ -500,6 +502,7 @@ impl Default for Settings {
             read_selection: true,
             switch_to_window: true,
             home: Vec::new(),
+            bar_offset: None,
         }
     }
 }
