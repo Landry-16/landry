@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0 (2026-10-15)
+
+Reprend les correctifs de la 0.5.1 : barre déplaçable dont la position est gardée, Ctrl+Alt+Espace par défaut, extension GNOME compatible avec GNOME 50 (Ubuntu 26.04).
+
 ## 0.5.1 (2026-10-15)
 
 Ubuntu 26.04 et GNOME 50.
