@@ -140,7 +140,7 @@ mod tests {
         assert!(b.store.get("Perso (2)").is_ok(), "conflit de nom : suffixe");
         let again = b.import_backup(&file).unwrap();
         assert!(again.contains("0 preset(s), 0 extrait(s), 0 note(s)"), "{again}");
-        std::fs::remove_dir_all(da).unwrap();
-        std::fs::remove_dir_all(db).unwrap();
+        let _ = std::fs::remove_dir_all(da);
+        let _ = std::fs::remove_dir_all(db);
     }
 }

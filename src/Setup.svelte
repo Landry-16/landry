@@ -144,6 +144,7 @@
       </div>
     </li>
 
+    {#if info?.extension !== 'unsupported'}
     <li>
       <h2>{t('Fenêtres et presse-papiers')}</h2>
       <p class="hint">{t('Passer à une fenêtre déjà ouverte, et retrouver ce que tu as copié avec /presse-papiers. Une petite extension GNOME, qui ne répond qu’à Landry ; l’historique reste en mémoire et ignore les mots de passe.')}</p>
@@ -164,6 +165,7 @@
         <p class="state">{t('Extension absente : installe Landry avec ./install.sh ou le paquet .deb.')}</p>
       {/if}
     </li>
+    {/if}
 
     <li>
       <h2>{t('Outils facultatifs')}</h2>

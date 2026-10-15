@@ -1,17 +1,25 @@
-//! CLI <-> resident process link over a Unix socket. One request line, one reply line.
+//! CLI <-> resident process link over a Unix socket (AF_UNIX on Windows 10 and later too).
+//! One request line, one reply line.
 
 use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+#[cfg(windows)]
+use uds_windows::{UnixListener, UnixStream};
 
 pub fn socket_path() -> PathBuf {
     let dir = std::env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir);
     dir.join("landry.sock")
+}
+
+/// Whether a resident process answers on the socket.
+pub fn running() -> bool {
+    UnixStream::connect(socket_path()).is_ok()
 }
 
 /// A request sent by the CLI: the command words plus the activation token, if the
@@ -56,12 +64,7 @@ fn spawn_daemon() -> std::io::Result<()> {
     if crate::session::start_service() {
         return Ok(());
     }
-    Command::new(std::env::current_exe()?)
-        .arg("daemon")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .process_group(0)
+    crate::util::detach(Command::new(std::env::current_exe()?).arg("daemon").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()))
         .spawn()?;
     Ok(())
 }
@@ -120,7 +123,7 @@ pub fn client(args: &[String]) -> i32 {
 /// Bind the socket, refusing to start if another daemon already answers on it.
 pub fn bind() -> std::io::Result<UnixListener> {
     let path = socket_path();
-    if UnixStream::connect(&path).is_ok() {
+    if running() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AddrInUse,
             "un processus résident Landry tourne déjà",

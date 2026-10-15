@@ -1,7 +1,7 @@
 [package]
 name = "landry"
 version = "0.4.0"
-description = "Landry, compagnon du quotidien pour Ubuntu GNOME"
+description = "Landry, compagnon du quotidien pour Linux et Windows"
 license = "MIT"
 edition = "2021"
 
@@ -12,7 +12,6 @@ tauri-build = { version = "2.7.2", features = [] }
 tauri = { version = "2.12.3", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-gtk = "0.18"
 nucleo = "0.5.0"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 chrono = "0.4.45"
@@ -32,7 +31,17 @@ fend-core = "1.5.8"
 chrono-tz = { version = "0.10.4", features = ["case-insensitive"] }
 notify-rust = "4.18.2"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+
+# Linux desktop integration: GTK clipboard and icons, xdg portals (screenshot, color, paste).
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
 ashpd = { version = "0.13.13", features = ["screenshot", "remote_desktop", "screencast"] }
+
+# Windows: Unix sockets for the CLI link, clipboard, and the global shortcut GNOME gives on Linux.
+[target.'cfg(windows)'.dependencies]
+uds_windows = "1.2.1"
+arboard = { version = "3", default-features = false }
+tauri-plugin-global-shortcut = "2"
 
 # Thin LTO: about 2 min for a rebuild on all cores, against 4 to 5 min on one core with full LTO.
 [profile.release]

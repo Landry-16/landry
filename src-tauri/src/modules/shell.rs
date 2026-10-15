@@ -9,6 +9,7 @@ use base64::Engine as _;
 use serde::Deserialize;
 use std::time::Duration;
 
+#[cfg_attr(windows, allow(dead_code))]
 pub const UUID: &str = "landry@landry-16.github.io";
 
 fn call(method: &str, args: &[&str]) -> Result<String, String> {
@@ -64,6 +65,7 @@ pub fn switch_to_app(desktop_id: &str) -> bool {
     windows().ok().and_then(|w| w.into_iter().find(|w| w.app == desktop_id)).is_some_and(|w| activate(w.id).is_ok())
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 pub fn available() -> bool {
     call("Windows", &[]).is_ok()
 }

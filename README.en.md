@@ -1,8 +1,8 @@
 # Landry
 
-Landry is a keyboard companion for Ubuntu GNOME. One shortcut opens a bar: type a few letters to launch an app or switch to its window, open a file or a project, calculate, convert, paste a snippet or something you copied earlier, write a note, start a timer, control the music, or run a script. Everything stays on your computer, except the online services you choose to connect (GitHub, Vercel, translation, weather, dictionary).
+Landry is a keyboard companion for Linux (built around GNOME) and Windows. One shortcut opens a bar: type a few letters to launch an app or switch to its window, open a file or a project, calculate, convert, paste a snippet or something you copied earlier, write a note, start a timer, control the music, or run a script. Everything stays on your computer, except the online services you choose to connect (GitHub, Vercel, translation, weather, dictionary).
 
-Target: Ubuntu 24.04, GNOME 46, Wayland session. Stack: Tauri 2 (Rust) and Svelte 5. The interface is in French and English.
+Target: GNOME on Wayland (Ubuntu, Debian, Fedora, openSUSE, Arch…), and Windows 10 or 11. Stack: Tauri 2 (Rust) and Svelte 5. The interface is in French and English.
 
 [Version française](README.md) · [Features and their state](FEATURES.md)
 
@@ -20,9 +20,15 @@ From a clone it builds your sources. `./install.sh --release` installs the packa
 curl -fsSL https://raw.githubusercontent.com/Landry-16/landry/dev/install.sh | bash
 ```
 
-The script installs what is missing (system packages; Rust and Node 22 when it has to build), installs the package with its recommended tools (playerctl, FFmpeg, ImageMagick, Tesseract, ripgrep…), enables the GNOME extension, restarts Landry and ends with `landry doctor`. It only asks for your password for apt. `./install.sh --uninstall` removes Landry and keeps your settings and data.
+The script installs what is missing (system packages; Rust and Node 22 when it has to build), installs the package with its recommended tools (playerctl, FFmpeg, ImageMagick, Tesseract, ripgrep…), enables the GNOME extension, restarts Landry and ends with `landry doctor`. It only asks for your password for the package manager. `./install.sh --uninstall` removes Landry and keeps your settings and data.
 
-Each tag `v*` pushed to GitHub builds the `.deb` and attaches it to a release (`.github/workflows/release.yml`).
+Each tag `v*` pushed to GitHub builds the `.deb`, `.rpm`, AppImage and Windows installer and attaches them to a release (`.github/workflows/release.yml`).
+
+### Distributions and Windows
+
+`install.sh` detects the package manager: apt (Debian, Ubuntu, Mint, Pop!_OS) installs the `.deb`, dnf (Fedora) and zypper (openSUSE) the `.rpm`, pacman (Arch, Manjaro, EndeavourOS) a package made from the `.deb`. On any other distribution, take the AppImage of the [latest release](https://github.com/Landry-16/landry/releases/latest). Outside GNOME the bar works, but the shortcut, the extension and the portals (color picker, screenshot, auto-paste) need setting up by hand.
+
+On Windows 10 or 11, run `Landry_*_x64-setup.exe` from the latest release, then press Ctrl+Alt+Space. Change the shortcut and the start with the session in `/bienvenue`. Apps come from the Start Menu. Not on Windows yet: the GNOME extension (windows, clipboard history), color picker, OCR, auto-paste, "Open with" and app icons; `capture` opens the Windows Snipping Tool.
 
 ## First launch
 

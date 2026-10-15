@@ -403,7 +403,7 @@ mod tests {
         assert!(e.tick(t0 + 599).is_empty());
         assert_eq!(e.tick(t0 + 600), vec![("Minuteur terminé".to_string(), "pâtes".to_string())]);
         assert!(!e.has_timers());
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -418,7 +418,7 @@ mod tests {
         assert_eq!(again.timers[0].label, "four");
         assert_eq!(again.tick(start + 3600)[0].0, "Minuteur terminé");
         assert!(usage::Db::open(&dir.join("landry.db")).unwrap().load_timers().unwrap().is_empty());
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -430,7 +430,7 @@ mod tests {
         assert_eq!(e.tick(t0 + FOCUS)[0].0, "Pomodoro : pause");
         assert_eq!(e.tick(t0 + FOCUS + BREAK)[0].0, "Pomodoro : au travail");
         assert_eq!(e.timers[0].kind, TimerKind::Pomodoro { focus: true, round: 1 });
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -442,7 +442,7 @@ mod tests {
         assert_eq!(e.search("boulangerie")[0].module, "tasks");
         let notes = e.tick(usage::now() + 120);
         assert_eq!(notes, vec![("Rappel".to_string(), "appeler la boulangerie".to_string())]);
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -455,6 +455,6 @@ mod tests {
         let out = e.organizer_run(&new, "note-new").unwrap();
         assert!(matches!(out, Outcome::View(ref v) if v.starts_with("notes:")));
         assert_eq!(e.search("idées presets")[0].module, "notes");
-        std::fs::remove_dir_all(dir).unwrap();
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

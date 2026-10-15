@@ -1,8 +1,8 @@
 # Landry
 
-Landry est un compagnon du quotidien pour Ubuntu GNOME. Un raccourci clavier ouvre une barre : on tape quelques lettres pour lancer une application, ouvrir un fichier ou un projet, calculer, convertir, coller un extrait, noter une idée, lancer un minuteur ou un script. Tout reste en local, sauf les services que tu choisis de brancher (GitHub, Vercel, traduction).
+Landry est un compagnon du quotidien pour Linux (pensé pour GNOME) et Windows. Un raccourci clavier ouvre une barre : on tape quelques lettres pour lancer une application, ouvrir un fichier ou un projet, calculer, convertir, coller un extrait, noter une idée, lancer un minuteur ou un script. Tout reste en local, sauf les services que tu choisis de brancher (GitHub, Vercel, traduction).
 
-Cible : Ubuntu 24.04, GNOME 46, session Wayland. Pile : Tauri 2 (Rust) et Svelte 5.
+Cible : GNOME sous Wayland (Ubuntu, Debian, Fedora, openSUSE, Arch…), et Windows 10 ou 11. Pile : Tauri 2 (Rust) et Svelte 5.
 
 La liste complète des fonctionnalités, avec leur état et ce qui reste à faire, est dans [FEATURES.md](FEATURES.md). [English version](README.en.md).
 
@@ -14,7 +14,7 @@ Une seule commande installe, met à jour ou réinstalle Landry, avec tout ce don
 ./install.sh
 ```
 
-Depuis un clone, il construit tes sources. `./install.sh --release` installe plutôt le paquet de la dernière version GitHub, sans rien compiler ; chaque étiquette `v*` poussée sur GitHub construit ce paquet et l'attache à une version (`.github/workflows/release.yml`).
+Depuis un clone, il construit tes sources. `./install.sh --release` installe plutôt le paquet de la dernière version GitHub, sans rien compiler ; chaque étiquette `v*` poussée sur GitHub construit le `.deb`, le `.rpm`, l'AppImage et l'installeur Windows, et les attache à une version (`.github/workflows/release.yml`).
 
 Sans clone du dépôt (seulement si le dépôt GitHub est public) :
 
@@ -22,11 +22,17 @@ Sans clone du dépôt (seulement si le dépôt GitHub est public) :
 curl -fsSL https://raw.githubusercontent.com/Landry-16/landry/dev/install.sh | bash
 ```
 
-Le script installe ce qui manque (paquets système ; Rust et Node 22 dans `~/.local/share/landry/node` quand il doit compiler), installe le paquet avec les outils recommandés (playerctl, FFmpeg, ImageMagick, Tesseract, ripgrep…), active l'extension GNOME, relance Landry et termine par `landry doctor`. Il ne demande le mot de passe que pour apt. Relance-le après chaque `git pull` pour mettre à jour. `./install.sh --uninstall` retire Landry et garde tes réglages et tes données.
+Le script installe ce qui manque (paquets système ; Rust et Node 22 dans `~/.local/share/landry/node` quand il doit compiler), installe le paquet avec les outils recommandés (playerctl, FFmpeg, ImageMagick, Tesseract, ripgrep…), active l'extension GNOME, relance Landry et termine par `landry doctor`. Il ne demande le mot de passe que pour le gestionnaire de paquets. Relance-le après chaque `git pull` pour mettre à jour. `./install.sh --uninstall` retire Landry et garde tes réglages et tes données.
 
 Si `apt-get update` échoue à cause d'un dépôt tiers cassé, le script continue quand même. Pour faire disparaître l'erreur, retire le dépôt concerné, par exemple `sudo add-apt-repository --remove ppa:alexlarsson/flatpak`.
 
 Pour fabriquer des paquets à distribuer (`.deb` et AppImage dans `dist-packages/`) : `scripts/package.sh`.
+
+### Distributions et Windows
+
+`install.sh` reconnaît le gestionnaire de paquets : apt (Debian, Ubuntu, Mint, Pop!_OS) installe le `.deb`, dnf (Fedora) et zypper (openSUSE) le `.rpm`, pacman (Arch, Manjaro, EndeavourOS) un paquet fabriqué à partir du `.deb`. Sur une autre distribution, prends l'AppImage de la [dernière version](https://github.com/Landry-16/landry/releases/latest). Hors de GNOME, la barre marche, mais le raccourci, l'extension et les portails (pipette, capture, collage automatique) sont à régler à la main.
+
+Sous Windows 10 ou 11, lance `Landry_*_x64-setup.exe` de la dernière version, puis appuie sur Ctrl+Alt+Espace. Le raccourci se change dans `/bienvenue`, le démarrage avec la session aussi. Les applications viennent du menu Démarrer. Pas encore sous Windows : extension GNOME (fenêtres, historique du presse-papiers), pipette, OCR, collage automatique, « Ouvrir avec » et icônes des applications ; `capture` ouvre l'outil Capture d'écran de Windows.
 
 ## Premier lancement
 

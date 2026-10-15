@@ -2,7 +2,11 @@
 //! A short session per paste (GNOME shows a "remote control" indicator while one is open);
 //! the restore token saved after the first approval avoids asking again.
 
+#![cfg_attr(windows, allow(dead_code))]
+
+#[cfg(target_os = "linux")]
 use ashpd::desktop::remote_desktop::{DeviceType, KeyState, RemoteDesktop, SelectDevicesOptions};
+#[cfg(target_os = "linux")]
 use ashpd::desktop::PersistMode;
 use std::path::PathBuf;
 
@@ -14,7 +18,14 @@ fn token_path() -> PathBuf {
     crate::paths::data_dir().join("remote-desktop.token")
 }
 
+/// Not on Windows yet: the caller falls back to "paste with Ctrl+V".
+#[cfg(windows)]
+pub async fn send(_back: usize) -> Result<(), String> {
+    Err("collage automatique indisponible sous Windows".into())
+}
+
 /// Press Ctrl+V, then Left `back` times (to land on the snippet's {curseur}).
+#[cfg(target_os = "linux")]
 pub async fn send(back: usize) -> ashpd::Result<()> {
     let rd = RemoteDesktop::new().await?;
     let session = rd.create_session(Default::default()).await?;
