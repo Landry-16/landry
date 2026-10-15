@@ -40,6 +40,12 @@
       return autostart ? t('Landry démarrera avec la session.') : t('Démarrage automatique désactivé.');
     });
 
+  function setOffset(i, value) {
+    const next = [...(settings.bar_offset ?? [0, 0])];
+    next[i] = Math.round(Number(value)) || 0;
+    settings.bar_offset = next;
+  }
+
   async function save() {
     message = '';
     failure = '';
@@ -85,6 +91,12 @@
       <label class="check"><input type="checkbox" bind:checked={autostart} onchange={toggleAutostart} /> {t('Démarrer Landry avec la session')}</label>
       <label class="check"><input type="checkbox" bind:checked={settings.switch_to_window} /> {t('Entrée sur une application déjà ouverte : passer à sa fenêtre (Ctrl+K pour en ouvrir une nouvelle)')}</label>
       <label class="check"><input type="checkbox" bind:checked={settings.read_selection} /> {t('Lire le texte sélectionné à l’ouverture (pour maj, titre, typo…)')}</label>
+      <label for="bar-x">{t('Position de la barre, en pixels depuis le centre. Glisse la barre pour la déplacer ; vide : celle du preset.')}</label>
+      <div class="inline">
+        <input id="bar-x" type="number" aria-label="X" placeholder="X" value={settings.bar_offset?.[0] ?? ''} onchange={(e) => setOffset(0, e.target.value)} />
+        <input type="number" aria-label="Y" placeholder="Y" value={settings.bar_offset?.[1] ?? ''} onchange={(e) => setOffset(1, e.target.value)} />
+        <button disabled={!settings.bar_offset} onclick={() => (settings.bar_offset = null)}>{t('Recentrer')}</button>
+      </div>
       <button onclick={() => run(async () => t('Sauvegarde : {p}', { p: await invoke('backup_export') }))}>{t('Exporter une sauvegarde complète')}</button>
       <label for="backup-path">{t("Importer une sauvegarde (rien n'est supprimé, les doublons sont ignorés)")}</label>
       <div class="inline">

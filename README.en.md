@@ -32,7 +32,9 @@ On Windows 10 or 11, run `Landry_*_x64-setup.exe` from the latest release, then 
 
 ## First launch
 
-Run `landry`, or Landry from the app list. A one-screen assistant opens once, with five optional steps: the keyboard shortcut (press the keys you want, or keep Ctrl+Alt+Space), start with the session, the look in one click, the GNOME extension for windows and clipboard history, and the optional tools that are missing. Reopen it with `/bienvenue` or `landry setup`.
+Run `landry`, or Landry from the app list. A one-screen assistant opens once, with five optional steps: the keyboard shortcut (press the keys you want, or keep Ctrl+Alt+Space), start with the session, the look in one click, the GNOME extension for windows and clipboard history, and the optional tools that are missing. Reopen it with `/bienvenue` or `landry setup`. Ctrl+Alt+Space is set up at the first start, even if you skip the assistant.
+
+Drag the bar by any free spot (around the field, the preset name) to move it: it opens there from then on. The position can also be typed in Settings, General (Recenter puts it back in the middle).
 
 ## In the bar
 
