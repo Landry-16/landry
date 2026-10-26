@@ -418,6 +418,10 @@ impl Engine {
 
     /// Advance timers and collect due reminders. Returns notifications (title, body).
     pub fn tick(&mut self, now: i64) -> Vec<(String, String)> {
+        // shortcut: edits made in Obsidian come back within 30 s by polling; a file watcher would make it instant.
+        if now % 30 == 0 && obsidian::vault(&self.settings).is_some() {
+            self.reload_organizer();
+        }
         let mut out: Vec<(String, String)> = Vec::new();
         let mut keep = Vec::new();
         let mut changed = false;

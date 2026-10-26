@@ -91,7 +91,6 @@ impl Engine {
         };
         e.reload_config();
         e.reload_snippets();
-        e.reload_organizer();
         e.load_timers();
         e
     }
@@ -103,6 +102,8 @@ impl Engine {
         self.settings = settings;
         self.preset = preset;
         self.warning = w2.or(w1);
+        // The Obsidian vault may have just been set or moved: mirror the notes there now.
+        self.reload_organizer();
     }
 
     pub fn set_index(&mut self, module: &'static str, items: Vec<Item>) {
