@@ -124,6 +124,14 @@
     </div>
 
     <div class="group">
+      <h2>Obsidian</h2>
+      <label>{t('Dossier du coffre')} <input bind:value={settings.obsidian_vault} placeholder="~/Documents/Coffre" spellcheck="false" /></label>
+      <label>{t("Dossier de l'inbox (dans le coffre)")} <input bind:value={settings.obsidian_inbox} spellcheck="false" /></label>
+      <label>{t('Dossier des notes Landry (dans le coffre)')} <input bind:value={settings.obsidian_notes} spellcheck="false" /></label>
+      <p class="hint">{t("obs <texte> crée une note dans l'inbox, ou une tâche s'il y a une date. Les notes de Landry sont recopiées dans le coffre, et une note modifiée dans Obsidian revient dans Landry.")}</p>
+    </div>
+
+    <div class="group">
       <h2>{t('Montants')}</h2>
       <label>{t('Taux de TVA (%)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.vat_rate} /></label>
       <label>{t('Cotisations micro-entreprise (%)')} <input type="number" min="0" max="100" step="0.1" bind:value={settings.micro_rate} placeholder={t('à renseigner')} /></label>

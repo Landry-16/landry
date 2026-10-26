@@ -22,6 +22,7 @@
     ['/def maison', 'Définitions du Wiktionnaire'],
     ['12*7, 100 ht, 15h Paris en Tokyo', 'Calculs, montants, fuseaux'],
     ['minuteur 10 min pâtes', 'Lancer un minuteur'],
+    ['obs payer le loyer demain', 'Tâche ou note dans Obsidian'],
     ['pdf: facture', 'Fichiers filtrés par type'],
   ];
 </script>
