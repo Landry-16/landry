@@ -5,7 +5,8 @@ use crate::i18n::{t, tf};
 use crate::modules::organize::{clock, human, parse_duration, parse_task, totals, tracking_csv, when};
 use crate::search::{fold, Action, Item};
 use crate::usage;
-use chrono::Local;
+use crate::obsidian;
+use chrono::{Local, TimeZone};
 
 const FOCUS: i64 = 25 * 60;
 const BREAK: i64 = 5 * 60;
@@ -104,18 +105,25 @@ impl Engine {
             })
             .collect();
         self.set_index("tasks", tasks);
-        let notes = self
-            .db_ref()
-            .and_then(|d| d.notes().ok())
-            .unwrap_or_default()
+        let vault = obsidian::vault(&self.settings);
+        let notes = match (self.db_ref().and_then(|d| d.notes().ok()), &vault) {
+            // Only with a real list: an unreadable database must not empty the mirror.
+            (Some(list), Some(v)) => self.sync_obsidian(v, list),
+            (list, _) => list.unwrap_or_default(),
+        };
+        let notes = notes
             .into_iter()
             .map(|n| {
+                let mut actions = vec![Action::new("note-open", "Ouvrir")];
+                if vault.is_some() {
+                    actions.push(Action::new("note-obsidian", "Ouvrir dans Obsidian"));
+                }
                 let mut it = item(
                     "notes",
                     format!("note:{}", n.id),
                     first_line(&n.body),
                     tf("Note · {w}", &[("w", &when(n.updated, now))]),
-                    vec![Action::new("note-open", "Ouvrir")],
+                    actions,
                     n.id.to_string(),
                 );
                 // The whole body is searchable, not only the first line.
@@ -124,6 +132,56 @@ impl Engine {
             })
             .collect();
         self.set_index("notes", notes);
+    }
+
+    /// Mirror the notes into the vault; notes edited there since Landry saved them are taken back.
+    fn sync_obsidian(&self, vault: &std::path::Path, list: Vec<usage::Note>) -> Vec<usage::Note> {
+        match obsidian::sync_notes(vault, &self.settings.obsidian_notes, &list) {
+            Ok(back) if !back.is_empty() => {
+                if let Some(db) = self.db_ref() {
+                    for (id, body) in &back {
+                        if let Err(e) = db.save_note(*id, body) {
+                            eprintln!("landry: note {id} non reprise d'Obsidian : {e}");
+                        }
+                    }
+                    return db.notes().unwrap_or(list);
+                }
+                list
+            }
+            Ok(_) => list,
+            Err(e) => {
+                eprintln!("landry: miroir Obsidian : {e}");
+                list
+            }
+        }
+    }
+
+    /// `obs <texte>`: a note or a task in the vault's inbox.
+    fn obsidian_query(&self, rest: &str) -> Vec<Item> {
+        let Some(vault) = obsidian::vault(&self.settings) else {
+            return vec![item("notes", "obsidian:setup".into(), "Obsidian : choisir le coffre".into(), "Réglages, Général, Obsidian".into(), vec![Action::new("obsidian-settings", "Ouvrir les réglages")], String::new())];
+        };
+        let inbox = self.settings.obsidian_inbox.trim().trim_matches('/').to_string();
+        if rest.is_empty() {
+            return vec![item("notes", "obsidian:vault".into(), "Ouvrir le coffre Obsidian".into(), "obs <texte> : note ou tâche dans l'inbox".into(), vec![Action::new("obsidian-vault", "Ouvrir")], vault.to_string_lossy().into_owned())];
+        }
+        let now = Local::now();
+        let (text, due) = parse_task(rest, now);
+        let ts = due.map(|d| d.timestamp());
+        let note = item("notes", "obsidian:note".into(), tf("Note dans Obsidian : {t}", &[("t", &rest)]), tf("Nouvelle note dans {f}", &[("f", &inbox)]), vec![Action::new("obsidian-note", "Créer la note")], rest.to_string());
+        let task = item(
+            "tasks",
+            "obsidian:task".into(),
+            tf("Tâche dans Obsidian : {t}", &[("t", &text)]),
+            match ts {
+                Some(ts) => tf("Échéance {w}, dans {f}", &[("w", &when(ts, now)), ("f", &format!("{inbox}/{}", obsidian::TASK_FILE))]),
+                None => tf("Ajoutée à {f}", &[("f", &format!("{inbox}/{}", obsidian::TASK_FILE))]),
+            },
+            vec![Action::new("obsidian-task", "Ajouter la tâche")],
+            format!("{}\t{text}", ts.map(|t| t.to_string()).unwrap_or_default()),
+        );
+        // A date in the text reads as a task: offer it first.
+        if ts.is_some() { vec![task, note] } else { vec![note, task] }
     }
 
     /// Running timers and tracking, shown when the bar opens with an empty query.
@@ -215,6 +273,7 @@ impl Engine {
                 out.push(item("tracking", "track:export".into(), "Exporter le suivi du temps (CSV)".into(), "Dans le dossier Téléchargements".into(), vec![Action::new("track-export", "Exporter")], String::new()));
                 out
             }
+            "obs" | "obsidian" | "inbox" if on("notes") => self.obsidian_query(rest),
             "note" if on("notes") && !rest.is_empty() => {
                 vec![item("notes", "note:new".into(), tf("Nouvelle note : {t}", &[("t", &rest)]), "Crée la note et l'ouvre".into(), vec![Action::new("note-new", "Créer")], rest.to_string())]
             }
@@ -299,6 +358,33 @@ impl Engine {
             }
             "note-open" => Ok(Outcome::View(format!("notes:{}", item.data))),
             "notes-view" => Ok(Outcome::View("notes".into())),
+            "obsidian-note" | "obsidian-task" | "obsidian-vault" | "note-obsidian" => {
+                let vault = obsidian::vault(&self.settings).ok_or_else(|| t("aucun coffre Obsidian dans les réglages"))?;
+                let inbox = self.settings.obsidian_inbox.clone();
+                match action {
+                    "obsidian-note" => {
+                        let path = obsidian::capture_note(&vault, &inbox, &item.data, Local::now())?;
+                        msg(tf("Note créée dans Obsidian : {n}", &[("n", &path.file_stem().unwrap_or_default().to_string_lossy())]))
+                    }
+                    "obsidian-task" => {
+                        let (due, text) = item.data.split_once('\t').ok_or_else(|| t("tâche invalide"))?;
+                        let due = due.parse().ok().and_then(|ts| Local.timestamp_opt(ts, 0).single());
+                        obsidian::capture_task(&vault, &inbox, text, due)?;
+                        msg(tf("Tâche ajoutée dans Obsidian : {t}", &[("t", &text)]))
+                    }
+                    "obsidian-vault" => {
+                        crate::util::open(&obsidian::open_uri(&vault))?;
+                        Ok(Outcome::Hide)
+                    }
+                    _ => {
+                        let id: i64 = item.data.parse().map_err(|_| t("note inconnue"))?;
+                        let path = obsidian::mirror_path(&vault, &self.settings.obsidian_notes, id).ok_or_else(|| t("cette note n'est pas encore dans Obsidian"))?;
+                        crate::util::open(&obsidian::open_uri(&path))?;
+                        Ok(Outcome::Hide)
+                    }
+                }
+            }
+            "obsidian-settings" => Ok(Outcome::Settings),
             "" => Err(item.subtitle.clone()),
             a => Err(tf("action inconnue : {a}", &[("a", &a)])),
         }
@@ -442,6 +528,29 @@ mod tests {
         assert_eq!(e.search("boulangerie")[0].module, "tasks");
         let notes = e.tick(usage::now() + 120);
         assert_eq!(notes, vec![("Rappel".to_string(), "appeler la boulangerie".to_string())]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn obsidian_capture_and_mirror() {
+        let (mut e, dir) = engine();
+        assert_eq!(e.organizer_query(&all(), "obs idée")[0].id, "obsidian:setup");
+        let vault = dir.join("vault");
+        std::fs::create_dir_all(&vault).unwrap();
+        e.settings.obsidian_vault = vault.to_string_lossy().into_owned();
+        // A date makes it a task first; without one, a note first.
+        let items = e.organizer_query(&all(), "obs payer le loyer demain");
+        assert_eq!(items[0].id, "obsidian:task");
+        e.organizer_run(&items[0].clone(), "obsidian-task").unwrap();
+        assert!(std::fs::read_to_string(vault.join("00 Inbox/Inbox.md")).unwrap().contains("- [ ] payer le loyer [due:: "));
+        let note = e.organizer_query(&all(), "obsidian Idée de preset")[0].clone();
+        assert_eq!(note.id, "obsidian:note");
+        e.organizer_run(&note, "obsidian-note").unwrap();
+        assert!(vault.join("00 Inbox/Idée de preset.md").exists());
+        // Landry's notes are mirrored at each reload.
+        let new = e.organizer_query(&all(), "note Courses")[0].clone();
+        e.organizer_run(&new, "note-new").unwrap();
+        assert!(vault.join("00 Inbox/Landry/Courses.md").exists());
         let _ = std::fs::remove_dir_all(dir);
     }
 
