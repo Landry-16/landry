@@ -1,5 +1,12 @@
 # Changelog
 
+## Non publié
+
+### Ajouté
+- Obsidian : `obs <texte>` (ou `obsidian`, `inbox`) crée une note dans l'inbox du coffre, ou une tâche au format du plugin Tasks dans `Inbox.md` s'il y a une date (`obs payer le loyer demain`). `obs` seul ouvre le coffre.
+- Les notes de Landry sont recopiées dans le coffre (`00 Inbox/Landry` par défaut), une note par fichier. Une note modifiée dans Obsidian revient dans Landry ; une note supprimée dans Landry part dans la corbeille du coffre (`.trash`). Action « Ouvrir dans Obsidian » sur chaque note.
+- Réglages, Général, Obsidian : dossier du coffre, de l'inbox et des notes recopiées. Rien ne change tant que le coffre n'est pas renseigné.
+
 ## 0.6.0 (2026-10-15)
 
 Reprend les correctifs de la 0.5.1 : barre déplaçable dont la position est gardée, Ctrl+Alt+Espace par défaut, extension GNOME compatible avec GNOME 50 (Ubuntu 26.04).

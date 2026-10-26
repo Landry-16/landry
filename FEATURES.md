@@ -74,6 +74,7 @@ Catalogue de tout ce que fait Landry, avec l'état de chaque point. Le mode d'em
 | Tâches avec échéance et rappel | `todo appeler demain 10h` | fait |
 | Minuteur, chronomètre, Pomodoro (gardés après un redémarrage) | `minuteur 10 min pâtes` | fait |
 | Suivi du temps par client, export CSV | `suivi Nacre` | fait |
+| Obsidian : note ou tâche dans l'inbox du coffre, notes de Landry recopiées dans le coffre (dans les deux sens), ouvrir une note dans Obsidian | `obs payer le loyer demain` | fait |
 
 ## Captures
 
