@@ -252,6 +252,7 @@ fi
 PKG=${LANDRY_PACKAGE:-}
 if [[ -n $PKG ]]; then
   [[ -f $PKG ]] || die "paquet introuvable : $PKG"
+  PKG=$(realpath "$PKG")   # apt reads a relative path as a package name
   MODE=file
 fi
 if [[ $MODE == release ]]; then
