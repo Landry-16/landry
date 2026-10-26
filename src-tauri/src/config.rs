@@ -470,6 +470,12 @@ pub struct Settings {
     pub home: Vec<String>,
     /// Where the bar was dragged, [x, y] in pixels from the centre. None: the preset's offsets.
     pub bar_offset: Option<[i32; 2]>,
+    /// Obsidian vault folder; empty: no Obsidian bridge.
+    pub obsidian_vault: String,
+    /// Inbox folder inside the vault, for "obs <texte>" captures.
+    pub obsidian_inbox: String,
+    /// Folder inside the vault where Landry's notes are mirrored.
+    pub obsidian_notes: String,
 }
 
 impl Default for Settings {
@@ -503,6 +509,9 @@ impl Default for Settings {
             switch_to_window: true,
             home: Vec::new(),
             bar_offset: None,
+            obsidian_vault: String::new(),
+            obsidian_inbox: "00 Inbox".into(),
+            obsidian_notes: "00 Inbox/Landry".into(),
         }
     }
 }

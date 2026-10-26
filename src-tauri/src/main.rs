@@ -10,6 +10,7 @@ mod i18n;
 use i18n::{t, tf};
 mod ipc;
 mod modules;
+mod obsidian;
 mod organizer;
 mod paste;
 mod paths;
